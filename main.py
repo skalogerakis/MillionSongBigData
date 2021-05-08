@@ -2,6 +2,11 @@ import os
 import sys
 import glob
 import threading
+import avro
+import json
+from avro.datafile import DataFileWriter, DataFileReader
+from avro.io import DatumWriter, DatumReader
+from pyspark.sql.avro.functions import from_avro
 
 from hdf5_getters import *
 from pyspark.sql import SparkSession
@@ -25,8 +30,7 @@ def read_h5_to_list(filename):
     h5 = open_h5_file_read(filename)
     song_num = get_num_songs(h5)
     print(song_num)
-    # result = []
-    # for songidx in range(song_num):
+
     song_info = []
     # METADATA
     # song_info.append(float(get_artist_familiarity(h5tocopy)))
@@ -104,15 +108,40 @@ def read_h5_to_list(filename):
     return song_info
 
 
+def song_entry(filename):
+    h5 = open_h5_file_read(filename)
+    song_num = get_num_songs(h5)
+    print(song_num)
+
+    song_info = []
+
+    song_info.append(str(get_title(h5)))
+    song_info.append(str(get_artist_familiarity(h5)))
+
+    print("Song info length ", len(song_info))
+
+    schema_parsed = avro.schema.parse(open("schema.avsc", "rb").read())
+
+    # Write data to an avro file
+    writer = DataFileWriter(open("songs.avro", "wb"), DatumWriter(), schema_parsed)
+    writer.append({"Title": str(get_title(h5)), "Familiarity": str(get_artist_familiarity(h5))})
+    writer.close()
+
+    h5.close()
+
+    return song_info
+
+
 # Just a word count sanity test to make sure that pyspark works as expected
 if __name__ == "__main__":
-    # conf = SparkConf().setAppName("PySpark Word Count").setMaster("local")
     # create Spark context with necessary configuration
-    # sc = SparkContext(conf=conf)
-    sc = SparkSession.builder.appName('PySpark Word Count').master('local[*]').getOrCreate()
+    sc = SparkSession.builder.appName('PySpark Word Count').master('local[*]').config("spark.jars.packages", "org.apache.spark:spark-avro_2.12:3.1.1").getOrCreate()
     sparkContext = sc.sparkContext
-    sparkContext.setLogLevel("ALL")
+    # sparkContext.setLogLevel("ALL")
     # sc.setLogLevel("INFO")
+
+
+
 
     # filenames = getListOfFiles('/home/skalogerakis/Documents/MillionSong/MillionSongSubset/A/M/G/')
     filenames = complete_file_list('/home/skalogerakis/Documents/MillionSong/MillionSongSubset/A/M/G')
@@ -122,21 +151,52 @@ if __name__ == "__main__":
     # print(result)
     # print(len(result))
 
-
-
     rdd = sparkContext.parallelize(filenames, 4)
-    rdd.foreach(print)
-
+    # rdd.foreach(print)
 
     # rdd1 = rdd.flatMap(lambda x: read_h5_to_list(x))
 
-    rdd.flatMap(lambda x: read_h5_to_list(x)).foreach(print)
+    rdd1 = rdd.map(lambda x: read_h5_to_list(x))
     # rdd1 = rdd.mapPartitions(lambda x: read_h5_to_list(x)).collect()
 
     # rdd1.collect()
-    # print("Num of partitions ", rdd1.getNumPartitions())
-    # print("Count ", rdd1.count())
-    # print(rdd1.take(5))
+    print("Num of partitions ", rdd1.getNumPartitions())
+    print("Count ", rdd1.count())
+    print(rdd1.take(50))
 
+    print("RDD", rdd)
+
+    print("RDD1", rdd1)
+
+    print("RDDCollect ", rdd1.collect())
+
+    # col_name = ["artist familiarity", "artist hotttnesss", "artist id", "artist location", "artist mbtags",
+    #             "artist mbtags count", "artist name", "artist terms", "artist terms freq", "artist terms weight",
+    #             "danceability", "duration", "end of fade in", "energy", "key",
+    #             "key confidence", "loudness", "mode", "mode confidence", "release",
+    #             "segments confidence", "segments loudness max", "segments loudness max time",
+    #             "segments pitches", "segments timbre", "similar artists",
+    #             "song hotttnesss", "song id", "start of fade out", "tempo", "time signature",
+    #             "time signature confidence", "title", "track id", "year"]
+
+    col_name = ["artist familiarity", "artist hotttnesss"]
+
+    df1 = rdd1.toDF(col_name)
+    # df1 = sc.createDataFrame(rdd1, col_name)
+    print(df1.take(3))
+    # vectorizer.setInputCols(col_name)
+    # vectorizer.setOutputCol("features")
+
+
+
+
+
+    # print(complete_file_list('/home/skalogerakis/Documents/MillionSong/MillionSongSubset/A/M/G'))
+    # result = song_entry('/home/skalogerakis/Documents/MillionSong/MillionSongSubset/A/M/G/TRAMGDX12903CEF79F.h5')
+    # print(result)
+    # print(len(result))
+    #
+    # usersDF = sc.read.format("avro").load("/home/skalogerakis/Projects/MillionSongBigData/songs.avro")
+    # usersDF.printSchema()
 
 

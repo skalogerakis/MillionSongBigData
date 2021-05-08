@@ -1,0 +1,9 @@
+{
+    "namespace": "MillionSong.avro",
+              "type": "record",
+              "name": "Song",
+              "fields": [
+                  {"name": "Title", "type": ["string"]},
+                  {"name": "Familiarity", "type": "string"}
+              ]
+}
