@@ -25,7 +25,7 @@ def complete_file_list(basedir):
     print("Path list length ", len(total_file_list))
     return total_file_list
 
-
+# Idea 1 without avro. Simply return a list of all the attributes
 def read_h5_to_list(filename):
     h5 = open_h5_file_read(filename)
     song_num = get_num_songs(h5)
@@ -107,7 +107,7 @@ def read_h5_to_list(filename):
     h5.close()
     return song_info
 
-
+# Idea 2 using avro. First write output to avro. However is this necessary????
 def song_entry(filename):
     h5 = open_h5_file_read(filename)
     song_num = get_num_songs(h5)
@@ -151,26 +151,19 @@ if __name__ == "__main__":
     # print(result)
     # print(len(result))
 
+    # IDEA 1: Parallelize per file using the command below and create initial RDDs
     rdd = sparkContext.parallelize(filenames, 4)
     # rdd.foreach(print)
 
-    # rdd1 = rdd.flatMap(lambda x: read_h5_to_list(x))
-
+    # IDEA 1: Read h5 files and return a list of all elements
     rdd1 = rdd.map(lambda x: read_h5_to_list(x))
-    # rdd1 = rdd.mapPartitions(lambda x: read_h5_to_list(x)).collect()
 
-    # rdd1.collect()
     print("Num of partitions ", rdd1.getNumPartitions())
     print("Count ", rdd1.count())
     print(rdd1.take(50))
 
-    print("RDD", rdd)
 
-    print("RDD1", rdd1)
-
-    print("RDDCollect ", rdd1.collect())
-
-    # col_name = ["artist familiarity", "artist hotttnesss", "artist id", "artist location", "artist mbtags",
+    # schema = ["artist familiarity", "artist hotttnesss", "artist id", "artist location", "artist mbtags",
     #             "artist mbtags count", "artist name", "artist terms", "artist terms freq", "artist terms weight",
     #             "danceability", "duration", "end of fade in", "energy", "key",
     #             "key confidence", "loudness", "mode", "mode confidence", "release",
@@ -179,18 +172,18 @@ if __name__ == "__main__":
     #             "song hotttnesss", "song id", "start of fade out", "tempo", "time signature",
     #             "time signature confidence", "title", "track id", "year"]
 
-    col_name = ["artist familiarity", "artist hotttnesss"]
+    # TODO change and add all elements
+    schema = ["artist familiarity", "artist hotttnesss"]
 
-    df1 = rdd1.toDF(col_name)
+    # Transform to Dataframes from rdds from an existing schema
+    df1 = rdd1.toDF(schema)
     # df1 = sc.createDataFrame(rdd1, col_name)
     print(df1.take(3))
-    # vectorizer.setInputCols(col_name)
-    # vectorizer.setOutputCol("features")
 
 
 
 
-
+    # IDEA 2: Create first avro files after parsing h5 files. Read afterwards. Idea 1 seems to be better
     # print(complete_file_list('/home/skalogerakis/Documents/MillionSong/MillionSongSubset/A/M/G'))
     # result = song_entry('/home/skalogerakis/Documents/MillionSong/MillionSongSubset/A/M/G/TRAMGDX12903CEF79F.h5')
     # print(result)
