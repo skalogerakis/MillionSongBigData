@@ -18,6 +18,7 @@ import matplotlib.cm as cm
 from pyspark.ml.feature import VectorAssembler
 from pyspark.ml.stat import Correlation
 from pyspark.ml.feature import MinMaxScaler
+from pyspark.sql.functions import monotonically_increasing_id
 
 
 def correlation_heatmap(corrmatrix, columns):
@@ -94,6 +95,7 @@ def correlation_scaled_checker(scaled_dataset):
 
     correlation_heatmap(corrmatrix, columns)
 
+
 # Main Function
 if __name__ == "__main__":
     # create Spark context with necessary configuration
@@ -158,10 +160,14 @@ if __name__ == "__main__":
 
     assembler = VectorAssembler(inputCols=columns, outputCol="raw_features").setHandleInvalid("skip")
 
-    df_scale = assembler.transform(feature_selector.drop('label'))
+    df_scale = assembler.transform(feature_selector).select('label','raw_features')
+    # Most classifiers use some form of a distance calculation and each numeric feature tends to have different
+    # ranges, some more broad than others. Scaling these features helps ensure that each feature’s contribution is
+    # weighted proportionally.
+    # https://albertdchiu.medium.com/a-step-by-step-example-in-binary-classification-5dac0f1ba2dd
     scaler = MinMaxScaler(inputCol="raw_features", outputCol="scaled_features")
     scalerModel = scaler.fit(df_scale)
-    df_scale = scalerModel.transform(df_scale).persist(pyspark.StorageLevel.DISK_ONLY)
+    df_scale = scalerModel.transform(df_scale).select('label','scaled_features').persist(pyspark.StorageLevel.DISK_ONLY)
 
     print("Sanity check counter ", df_scale.count())
 
