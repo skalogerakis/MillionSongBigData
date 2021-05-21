@@ -17,6 +17,7 @@ import matplotlib.pyplot as plt
 import matplotlib.cm as cm
 from pyspark.ml.feature import VectorAssembler
 from pyspark.ml.stat import Correlation
+from pyspark.ml.feature import MinMaxScaler
 
 
 def correlation_heatmap(corrmatrix, columns):
@@ -67,15 +68,31 @@ def correlation_checker(parquetFile):
     vector_col = "corr_features"
     assembler = VectorAssembler(inputCols=columns,
                                 outputCol=vector_col).setHandleInvalid("skip")
-    myGraph_vector = assembler.transform(feature_selector).select(vector_col)
+    corr_vector = assembler.transform(feature_selector).select(vector_col)
     # matrix = Correlation.corr(myGraph_vector, vector_col)
 
-    matrix = Correlation.corr(myGraph_vector, vector_col).collect()[0][0]
+    matrix = Correlation.corr(dataset=corr_vector, column=vector_col, method='pearson').collect()[0][0]
     corrmatrix = matrix.toArray().tolist()
     print(corrmatrix)
 
     correlation_heatmap(corrmatrix, columns)
 
+# Results pretty much the same as the non-scaled version
+def correlation_scaled_checker(scaled_dataset):
+
+    '''
+    Try 1: Attributes artist_latitude and artist_longitude seem to be very sparse so they it require to skip a lot of values.
+        However they seem irrelevant with the year prediction of a song, so omit them
+    Try 2: After examining the first results in our subset, values analysis_sample_rate, danceability, energy contain always the same value
+        So the correlation map, they get NaN values which is expected. Omit them as well
+    '''
+    vector_col = "scaled_features"
+
+    matrix = Correlation.corr(dataset=scaled_dataset, column=vector_col, method='pearson').collect()[0][0]
+    corrmatrix = matrix.toArray().tolist()
+    print(corrmatrix)
+
+    correlation_heatmap(corrmatrix, columns)
 
 # Main Function
 if __name__ == "__main__":
@@ -85,7 +102,6 @@ if __name__ == "__main__":
     sparkContext = sc.sparkContext
     sparkContext.setLogLevel("OFF")
 
-    # parquetFile = sc.read.parquet("/home/skalogerakis/Projects/MillionSongBigData/parquetFileTuple")
     parquetFile = sc.read.parquet("/home/skalogerakis/Projects/MillionSongBigData/parquetTimeBig")
 
     # Parquet files can also be used to create a temporary view and then used in SQL statements.
@@ -94,4 +110,58 @@ if __name__ == "__main__":
     print("Sanity check counter ", parquetFile.count())
     print(len(parquetFile.columns))
 
-    correlation_checker(parquetFile)
+    # correlation_checker(parquetFile)
+
+    feature_selector = parquetFile.select('artist_familiarity', 'artist_hotttnesss', 'song_hotttnesss','duration', 'end_of_fade_in',
+    'key_confidence', 'start_of_fade_out', 'tempo', 'time_signature_confidence', 'artist_playmeid',
+    'artist_7digitalid', 'release_7digitalid', 'track_7digitalid', 'key', 'loudness','mode', 'time_signature', 'year', 'label')
+
+
+
+    # feature_selector = parquetFile.select("artist_familiarity", "end_of_fade_in", "start_of_fade_out", "tempo",
+    #                                       "time_signature_confidence",
+    #                                       "artist_playmeid", "artist_7digitalid", "release_7digitalid",
+    #                                       "track_7digitalid", "key", "loudness", "mode",
+    #                                       "mode_confidence", "time_signature", "label")
+
+    feature_selector.show(1)
+    feature_selector.describe().show()
+
+    # columns = ["artist_familiarity", "end_of_fade_in", "start_of_fade_out", "tempo",
+    #            "time_signature_confidence",
+    #            "artist_playmeid", "artist_7digitalid", "release_7digitalid",
+    #            "track_7digitalid", "key", "loudness", "mode",
+    #            "mode_confidence", "time_signature", "label"]
+
+    columns = ['artist_familiarity', 'artist_hotttnesss','song_hotttnesss', 'duration', 'end_of_fade_in',
+    'key_confidence', 'start_of_fade_out', 'tempo', 'time_signature_confidence', 'artist_playmeid',
+    'artist_7digitalid', 'release_7digitalid', 'track_7digitalid', 'key', 'loudness','mode', 'time_signature', 'year', 'label']
+
+    # selected features
+    # feature_cols = ['artist_familiarity', 'artist_hotttnesss', 'danceability', 'duration', 'end_of_fade_in', \\\n#            'energy', 'key', 'key_confidence', 'loudness', 'mode', 'mode_confidence', 'song_hotttnesss', \\\n#            'start_of_fade_out', 'tempo', 'time_signature', 'time_signature_confidence', 'year']
+    # selected scalar features
+    # feature_cols = ['artist_familiarity', 'danceability', 'duration', 'end_of_fade_in',
+    #                 'key', 'key_confidence', 'loudness', 'mode',
+    #                 'tempo', 'time_signature', 'time_signature_confidence']
+
+    # for i in range(10):
+    #     feature_cols.append('segments_loudness_max_time_' + str(i))
+    #     feature_cols.append('segments_loudness_max_' + str(i))
+    #     feature_cols.append('segments_confidence_' + str(i))
+    #     for i in range(120):
+    #         feature_cols.append('segments_pitches_' + str(i))
+    #         feature_cols.append('segments_timbre_' + str(i))
+
+    assembler = VectorAssembler(inputCols=columns, outputCol="raw_features").setHandleInvalid("skip")
+
+    df_scale = assembler.transform(feature_selector)
+    scaler = MinMaxScaler(inputCol="raw_features", outputCol="scaled_features")
+    scalerModel = scaler.fit(df_scale)
+    df_scale = scalerModel.transform(df_scale).persist(pyspark.StorageLevel.DISK_ONLY)
+
+    # df_scale.select('scaled_features').show(20, False)
+
+    # correlation_scaled_checker(df_scale)
+
+
+
