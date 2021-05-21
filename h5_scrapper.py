@@ -24,18 +24,33 @@ def complete_file_list(basedir):
     for root, dirs, files in os.walk(basedir):
         files = glob.glob(os.path.join(root, '*' + ext))  # Glob returns a list of paths matching a pathname pattern
 
-        # Since we have multiple arrays simply concat the and after all iteration the final list will contain all the available paths
+        # Since we have multiple arrays simply concat the and after all iteration the final list will contain all the
+        # available paths
         total_file_list += files
 
     print("Path list length ", len(total_file_list))
     return total_file_list
 
 
-# Idea 1 without avro. Simply return a list of all the attributes
+# Time decorator to evaluate performance
+def time_wrapper(func):
+    def measure_time(*args, **kwargs):
+        # Start time function
+        start_time = time.time()
+
+        # Function excecution and get results
+        results = func(*args, **kwargs)
+
+        # Print the results
+        print("Processing time: %.2f seconds." % (time.time() - start_time))
+        return results
+
+    return measure_time
+
+
+# Parse hdf5 file and return all song elements as list
 def read_h5_to_list(filename):
     h5 = open_h5_file_read(filename)
-    song_num = get_num_songs(h5)
-    # print(song_num)
 
     song_info = []
 
@@ -102,12 +117,9 @@ def read_h5_to_list(filename):
     return song_info
 
 
-def read_h5_tester(filename):
+# Parse hdf5 element and return everything as a tuple. Seems more suitable for instant fit in dataframes
+def read_h5_to_tuple(filename):
     h5 = open_h5_file_read(filename)
-    # song_num = get_num_songs(h5)
-    # print(song_num)
-
-    # if()
 
     song_info = (
         str(get_title(h5)), float(get_artist_familiarity(h5)), float(get_artist_hotttnesss(h5)), str(get_artist_id(h5)),
@@ -136,8 +148,14 @@ def read_h5_tester(filename):
     return song_info
 
 
-# Idea 2 using avro. First write output to avro. However is this necessary????
-def song_entry(filename):
+'''
+    LEGACY METHOD
+    One of the initial approaches that writes elements instantly to avro files. However, this approach has the downside
+    that does not fully utilize the spark framework and must use DataFileWriter which is suboptimal as files are getting larger
+'''
+
+
+def write_h5_to_avro_instant(filename):
     h5 = open_h5_file_read(filename)
     song_num = get_num_songs(h5)
     print(song_num)
@@ -161,7 +179,9 @@ def song_entry(filename):
     return song_info
 
 
-def idea1(sparkContext):
+# Implementation with array schema in use. Works correctly however a little difficult to use
+@time_wrapper
+def runtime_array(sparkContext):
     filenames = complete_file_list('/home/skalogerakis/Documents/MillionSong/MillionSongSubset/A/M')
     print(len(filenames))
 
@@ -169,10 +189,10 @@ def idea1(sparkContext):
     rdd = sparkContext.parallelize(filenames)
 
     # IDEA 1: Read h5 files and return a list of all elements
-    rdd1 = rdd.map(lambda x: read_h5_to_list(x))
+    transformed_rdd = rdd.map(lambda x: read_h5_to_list(x))
 
-    print("Num of partitions ", rdd1.getNumPartitions())
-    print("Count ", rdd1.count())
+    print("Num of partitions ", transformed_rdd.getNumPartitions())
+    print("Count ", transformed_rdd.count())
 
     schema = ["title", "artist_familiarity", "artist_hotttnesss", "artist_id", "artist_mbid", "artist_playmeid",
               "artist_7digitalid", "artist_latitude", "artist_longitude", "artist_location", "artist_name",
@@ -185,38 +205,24 @@ def idea1(sparkContext):
               "segments_loudness_max_time", "segments_loudness_start", "segments_pitches", "segments_start",
               "segments_timbre", "similar_artists", "tatums_confidence", "tatums_start"]
 
-    # TODO change and add all elements
-    # schema = ["artist familiarity", "artist hotttnesss"]
-
     # Transform to Dataframes from rdds from an existing schema
-    df1 = rdd1.toDF(schema)
-    # df1 = sc.createDataFrame(rdd1, col_name)
+    df1 = transformed_rdd.toDF(schema)
+
     print(df1.take(3))
     df1.printSchema()
     df1.show(10, True, True)
 
-    df1.write.mode("overwrite").parquet("/home/skalogerakis/Projects/MillionSongBigData/parquetFile")
+    filter_label = df1.filter(col('year') != 0).withColumn('label',
+                                                           when(col('year') == 0, -1).when(col('year') < 2000,
+                                                                                           0).otherwise(1))
+
+    filter_label.write.mode("overwrite").parquet("/home/skalogerakis/Projects/MillionSongBigData/parquetFile")
 
 
-# Time decorator to evaluate performance
-def time_wrapper(func):
-    def measure_time(*args, **kwargs):
-        # Start time function
-        start_time = time.time()
-
-        # Function excecution and get results
-        results = func(*args, **kwargs)
-
-        # Print the results
-        print("Processing time: %.2f seconds." % (time.time() - start_time))
-        return results
-
-    return measure_time
-
-
+# Implementation using StructTypes instead of arrays to define schema. Seems to be a more strictly formalized
+# approach so, will use that
 @time_wrapper
-def idea2(sparkContext, sc):
-    # filenames = complete_file_list('/home/skalogerakis/Documents/MillionSong/MillionSongSubset/A/')
+def runtime_formalized(sparkContext, sc):
     filenames = complete_file_list('/home/skalogerakis/Documents/MillionSong/MillionSongSubset/A/M/G/')
     # filenames = complete_file_list('/home/skalogerakis/Documents/MillionSong/MillionSongSubset/A/')
 
@@ -225,11 +231,11 @@ def idea2(sparkContext, sc):
     rdd = sparkContext.parallelize(filenames)
 
     # IDEA 1: Read h5 files and return a list of all elements
-    rdd1 = rdd.map(lambda x: read_h5_tester(x))
+    transformed_rdd = rdd.map(lambda x: read_h5_to_tuple(x))
 
-    print("Num of partitions ", rdd1.getNumPartitions())
-    print("Count ", rdd1.count())
-    # rdd1.foreach(print)
+    # Print a few stuff for debugging purposes
+    print("Num of partitions ", transformed_rdd.getNumPartitions())
+    print("Count ", transformed_rdd.count())
 
     schema = StructType([
         StructField("title", StringType(), True),
@@ -288,45 +294,37 @@ def idea2(sparkContext, sc):
         StructField("tatums_start", ArrayType(FloatType()), True),
     ])
 
-    df = sc.createDataFrame(data=rdd1, schema=schema)
+    df = sc.createDataFrame(data=transformed_rdd, schema=schema)
     df.printSchema()
     df.show(2, True, True)
 
-    fdf = df.filter(col('year') != 0).withColumn('label',
-                                                 when(col('year') == 0, -1).when(col('year') < 2000, 0).otherwise(1))
+    filter_label = df.filter(col('year') != 0).withColumn('label',
+                                                          when(col('year') == 0, -1).when(col('year') < 2000,
+                                                                                          0).otherwise(1))
 
-    fdf.write.mode("overwrite").parquet("/home/skalogerakis/Projects/MillionSongBigData/parquetBig")
+    filter_label.write.mode("overwrite").parquet("/home/skalogerakis/Projects/MillionSongBigData/parquetBig")
 
-    # fdf.write.mode("overwrite").parquet("/home/skalogerakis/Projects/MillionSongBigData/parquetTimeBig")
-    # PARQUET: Processing time: 470.67 seconds.
-    # File Size: 233,3MB
+    '''
+        # fdf.write.mode("overwrite").parquet("/home/skalogerakis/Projects/MillionSongBigData/parquetTimeBig")
+        PARQUET: Processing time: 470.67 seconds.
+        File Size: 233,3MB
+    
+        # fdf.write.mode("overwrite").format("avro").save("/home/skalogerakis/Projects/MillionSongBigData/avroTimeBig.avro")
+        Processing time: 511.12 seconds.
+        File Size: 400,6MB
+    '''
 
-    # fdf.write.mode("overwrite").format("avro").save("/home/skalogerakis/Projects/MillionSongBigData/avroTimeBig.avro")
-    # Processing time: 511.12 seconds.
-    # File Size: 400,6MB
 
-# Just a word count sanity test to make sure that pyspark works as expected
+# Main function
 if __name__ == "__main__":
     # create Spark context with necessary configuration
-    sc = SparkSession.builder.appName('PySpark Word Count').master('local[*]').config("spark.jars.packages", "org.apache.spark:spark-avro_2.12:3.1.1").getOrCreate()
-    # sc = SparkSession.builder.appName('PySpark Word Count').master('local[*]').getOrCreate()
+
+    # To execute avro execution in Pycharm use the SparkSession below
+    # sc = SparkSession.builder.appName('PySpark Word Count').master('local[*]').config("spark.jars.packages", "org.apache.spark:spark-avro_2.12:3.1.1").getOrCreate()
+    sc = SparkSession.builder.appName('PySpark HDF5 File parser').master('local[*]').getOrCreate()
 
     sparkContext = sc.sparkContext
     sparkContext.setLogLevel("OFF")
-    # sc.setLogLevel("OFF")
 
-    # idea1(sparkContext)
-    idea2(sparkContext, sc)
-
-    # IDEA 3: Create first avro files after parsing h5 files. Read afterwards. Idea 1 seems to be better
-    # print(complete_file_list('/home/skalogerakis/Documents/MillionSong/MillionSongSubset/A/M/G'))
-    # result = song_entry('/home/skalogerakis/Documents/MillionSong/MillionSongSubset/A/M/G/TRAMGDX12903CEF79F.h5')
-    # print(result)
-    # print(len(result))
-    #
-
-    # jsonFormatSchema = open("/home/skalogerakis/Projects/MillionSongBigData/schema.avsc", "r").read()
-    #
-    #
-    # usersDF = sc.read.format("avro").option("avroSchema",jsonFormatSchema).load("/home/skalogerakis/Projects/MillionSongBigData/tester_avro.avro")
-    # usersDF.printSchema()
+    # runtime_array(sparkContext)
+    runtime_formalized(sparkContext, sc)
