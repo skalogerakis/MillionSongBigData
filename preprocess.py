@@ -112,9 +112,11 @@ if __name__ == "__main__":
 
     # correlation_checker(parquetFile)
 
-    feature_selector = parquetFile.select('artist_familiarity', 'artist_hotttnesss', 'song_hotttnesss','duration', 'end_of_fade_in',
-    'key_confidence', 'start_of_fade_out', 'tempo', 'time_signature_confidence', 'artist_playmeid',
-    'artist_7digitalid', 'release_7digitalid', 'track_7digitalid', 'key', 'loudness','mode', 'time_signature', 'year', 'label')
+    feature_selector = parquetFile.select("artist_familiarity", "end_of_fade_in", "start_of_fade_out", "tempo",
+                                          "time_signature_confidence",
+                                          "artist_playmeid", "artist_7digitalid", "release_7digitalid",
+                                          "track_7digitalid", "key", "loudness", "mode",
+                                          "mode_confidence", "time_signature", "label")
 
 
 
@@ -133,9 +135,11 @@ if __name__ == "__main__":
     #            "track_7digitalid", "key", "loudness", "mode",
     #            "mode_confidence", "time_signature", "label"]
 
-    columns = ['artist_familiarity', 'artist_hotttnesss','song_hotttnesss', 'duration', 'end_of_fade_in',
-    'key_confidence', 'start_of_fade_out', 'tempo', 'time_signature_confidence', 'artist_playmeid',
-    'artist_7digitalid', 'release_7digitalid', 'track_7digitalid', 'key', 'loudness','mode', 'time_signature', 'year', 'label']
+    columns = ["artist_familiarity", "end_of_fade_in", "start_of_fade_out", "tempo",
+                                          "time_signature_confidence",
+                                          "artist_playmeid", "artist_7digitalid", "release_7digitalid",
+                                          "track_7digitalid", "key", "loudness", "mode",
+                                          "mode_confidence", "time_signature"]
 
     # selected features
     # feature_cols = ['artist_familiarity', 'artist_hotttnesss', 'danceability', 'duration', 'end_of_fade_in', \\\n#            'energy', 'key', 'key_confidence', 'loudness', 'mode', 'mode_confidence', 'song_hotttnesss', \\\n#            'start_of_fade_out', 'tempo', 'time_signature', 'time_signature_confidence', 'year']
@@ -154,12 +158,16 @@ if __name__ == "__main__":
 
     assembler = VectorAssembler(inputCols=columns, outputCol="raw_features").setHandleInvalid("skip")
 
-    df_scale = assembler.transform(feature_selector)
+    df_scale = assembler.transform(feature_selector.drop('label'))
     scaler = MinMaxScaler(inputCol="raw_features", outputCol="scaled_features")
     scalerModel = scaler.fit(df_scale)
     df_scale = scalerModel.transform(df_scale).persist(pyspark.StorageLevel.DISK_ONLY)
 
-    # df_scale.select('scaled_features').show(20, False)
+    print("Sanity check counter ", df_scale.count())
+
+    df_scale.write.mode("overwrite").parquet("/home/skalogerakis/Projects/MillionSongBigData/parquetAfterProcess")
+
+    df_scale.select('*').show(20, False)
 
     # correlation_scaled_checker(df_scale)
 
