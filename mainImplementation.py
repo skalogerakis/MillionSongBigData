@@ -8,9 +8,13 @@ from avro.datafile import DataFileWriter, DataFileReader
 from avro.io import DatumWriter, DatumReader
 from pyspark.sql.avro.functions import from_avro
 from pyspark.sql.types import *
+import time
+from functools import wraps
 
 from hdf5_getters import *
 from pyspark.sql import SparkSession
+from pyspark.sql.types import *
+from pyspark.sql.functions import *
 
 
 # Create first a function that finds all the available paths for parsing
@@ -31,7 +35,7 @@ def complete_file_list(basedir):
 def read_h5_to_list(filename):
     h5 = open_h5_file_read(filename)
     song_num = get_num_songs(h5)
-    print(song_num)
+    # print(song_num)
 
     song_info = []
 
@@ -92,7 +96,7 @@ def read_h5_to_list(filename):
     song_info.append(get_tatums_confidence(h5).tolist())
     song_info.append(get_tatums_start(h5).tolist())
 
-    print("Song info length ", len(song_info))
+    # print("Song info length ", len(song_info))
     # result.append(song_info)
     h5.close()
     return song_info
@@ -100,8 +104,10 @@ def read_h5_to_list(filename):
 
 def read_h5_tester(filename):
     h5 = open_h5_file_read(filename)
-    song_num = get_num_songs(h5)
-    print(song_num)
+    # song_num = get_num_songs(h5)
+    # print(song_num)
+
+    # if()
 
     song_info = (
         str(get_title(h5)), float(get_artist_familiarity(h5)), float(get_artist_hotttnesss(h5)), str(get_artist_id(h5)),
@@ -124,7 +130,7 @@ def read_h5_tester(filename):
         get_segments_pitches(h5).tolist(), get_segments_start(h5).tolist(), get_segments_timbre(h5).tolist(),
         get_similar_artists(h5).tolist(), get_tatums_confidence(h5).tolist(), get_tatums_start(h5).tolist())
 
-    print("Song info length ", len(song_info))
+    # print("Song info length ", len(song_info))
     # result.append(song_info)
     h5.close()
     return song_info
@@ -156,7 +162,8 @@ def song_entry(filename):
 
 
 def idea1(sparkContext):
-    filenames = complete_file_list('/home/skalogerakis/Documents/MillionSong/MillionSongSubset/A/M/G')
+    filenames = complete_file_list('/home/skalogerakis/Documents/MillionSong/MillionSongSubset/A/M')
+    print(len(filenames))
 
     # IDEA 1: Parallelize per file using the command below and create initial RDDs
     rdd = sparkContext.parallelize(filenames)
@@ -191,10 +198,30 @@ def idea1(sparkContext):
     df1.write.mode("overwrite").parquet("/home/skalogerakis/Projects/MillionSongBigData/parquetFile")
 
 
+# Time decorator to evaluate performance
+def time_wrapper(func):
+    def measure_time(*args, **kwargs):
+        # Start time function
+        start_time = time.time()
+
+        # Function excecution and get results
+        results = func(*args, **kwargs)
+
+        # Print the results
+        print("Processing time: %.2f seconds." % (time.time() - start_time))
+        return results
+
+    return measure_time
+
+
+@time_wrapper
 def idea2(sparkContext, sc):
-    filenames = complete_file_list('/home/skalogerakis/Documents/MillionSong/MillionSongSubset/A/M/G')
+    # filenames = complete_file_list('/home/skalogerakis/Documents/MillionSong/MillionSongSubset/A/')
+    filenames = complete_file_list('/home/skalogerakis/Documents/MillionSong/MillionSongSubset/A/M/G/')
+    # filenames = complete_file_list('/home/skalogerakis/Documents/MillionSong/MillionSongSubset/A/')
 
     # IDEA 1: Parallelize per file using the command below and create initial RDDs
+    sparkContext.setLogLevel("ERROR")
     rdd = sparkContext.parallelize(filenames)
 
     # IDEA 1: Read h5 files and return a list of all elements
@@ -202,7 +229,7 @@ def idea2(sparkContext, sc):
 
     print("Num of partitions ", rdd1.getNumPartitions())
     print("Count ", rdd1.count())
-    rdd1.foreach(print)
+    # rdd1.foreach(print)
 
     schema = StructType([
         StructField("title", StringType(), True),
@@ -265,18 +292,28 @@ def idea2(sparkContext, sc):
     df.printSchema()
     df.show(2, True, True)
 
-    df.write.mode("overwrite").parquet("/home/skalogerakis/Projects/MillionSongBigData/parquetFileTuple")
+    fdf = df.filter(col('year') != 0).withColumn('label',
+                                                 when(col('year') == 0, -1).when(col('year') < 2000, 0).otherwise(1))
 
+    fdf.write.mode("overwrite").parquet("/home/skalogerakis/Projects/MillionSongBigData/parquetBig")
+
+    # fdf.write.mode("overwrite").parquet("/home/skalogerakis/Projects/MillionSongBigData/parquetTimeBig")
+    # PARQUET: Processing time: 470.67 seconds.
+    # File Size: 233,3MB
+
+    # fdf.write.mode("overwrite").format("avro").save("/home/skalogerakis/Projects/MillionSongBigData/avroTimeBig.avro")
+    # Processing time: 511.12 seconds.
+    # File Size: 400,6MB
 
 # Just a word count sanity test to make sure that pyspark works as expected
 if __name__ == "__main__":
     # create Spark context with necessary configuration
-    # sc = SparkSession.builder.appName('PySpark Word Count').master('local[*]').config("spark.jars.packages", "org.apache.spark:spark-avro_2.12:3.1.1").getOrCreate()
-    sc = SparkSession.builder.appName('PySpark Word Count').master('local[*]').getOrCreate()
+    sc = SparkSession.builder.appName('PySpark Word Count').master('local[*]').config("spark.jars.packages", "org.apache.spark:spark-avro_2.12:3.1.1").getOrCreate()
+    # sc = SparkSession.builder.appName('PySpark Word Count').master('local[*]').getOrCreate()
 
     sparkContext = sc.sparkContext
-    # sparkContext.setLogLevel("ALL")
-    # sc.setLogLevel("INFO")
+    sparkContext.setLogLevel("OFF")
+    # sc.setLogLevel("OFF")
 
     # idea1(sparkContext)
     idea2(sparkContext, sc)
@@ -287,5 +324,9 @@ if __name__ == "__main__":
     # print(result)
     # print(len(result))
     #
-    # usersDF = sc.read.format("avro").load("/home/skalogerakis/Projects/MillionSongBigData/songs.avro")
+
+    # jsonFormatSchema = open("/home/skalogerakis/Projects/MillionSongBigData/schema.avsc", "r").read()
+    #
+    #
+    # usersDF = sc.read.format("avro").option("avroSchema",jsonFormatSchema).load("/home/skalogerakis/Projects/MillionSongBigData/tester_avro.avro")
     # usersDF.printSchema()
