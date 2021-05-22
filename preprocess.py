@@ -179,11 +179,11 @@ if __name__ == "__main__":
 
     feature_selector = parquetFile.select("artist_familiarity", "end_of_fade_in", "tempo",
                                           "time_signature_confidence", "artist_playmeid", "artist_7digitalid", "release_7digitalid",
-                                          "key", "loudness", "mode", "mode_confidence", "time_signature", "label",
+                                          "key", "loudness", "mode", "mode_confidence", "time_signature",
                                           "bars_confidence_max", "beats_confidence_max", "bars_start_max",
                                            "segments_confidence_max", "segments_loudness_max_time_max",
                                            "tatums_confidence_max", "bars_confidence_min","beats_confidence_min", "bars_start_min",
-                                           "segments_confidence_min", "segments_loudness_max_time_min", "tatums_confidence_min")
+                                           "segments_confidence_min", "segments_loudness_max_time_min", "tatums_confidence_min","label")
 
 
 
@@ -207,7 +207,7 @@ if __name__ == "__main__":
                                           "time_signature_confidence",
                                           "artist_playmeid", "artist_7digitalid", "release_7digitalid",
                                           "key", "loudness", "mode",
-                                          "mode_confidence", "time_signature", "label",
+                                          "mode_confidence", "time_signature",
                                           "bars_confidence_max", "beats_confidence_max", "bars_start_max",
                                            "segments_confidence_max", "segments_loudness_max_time_max",
                                            "tatums_confidence_max",
@@ -229,8 +229,29 @@ if __name__ == "__main__":
     scalerModel = scaler.fit(df_scale)
     df_scale = scalerModel.transform(df_scale).select('label','scaled_features').persist(pyspark.StorageLevel.DISK_ONLY)
 
-
     print("Sanity check counter ", df_scale.count())
+    total_count=df_scale.count()
+    zero_counter = df_scale.filter(col('label') == 0).count()
+    ones_counter = df_scale.filter(col('label') == 1).count()
+    print("Count 1s :", ones_counter)
+    print("Count 0s", zero_counter)
+    print("Sanity check sum 1s and 0s", zero_counter+ones_counter)
+
+    if(zero_counter > ones_counter):
+        print("More zeros!")
+        balance_ratio= float(zero_counter)/float(total_count)
+        print('BalancingRatio = {}'.format(balance_ratio))
+        df_scale = df_scale.withColumn("classWeights", when(col('label') == 1, balance_ratio).otherwise(1 - balance_ratio))
+
+    else:
+        print("More ones!")
+        balance_ratio = float(ones_counter) / float(total_count)
+        print('BalancingRatio = {}'.format(balance_ratio))
+        df_scale = df_scale.withColumn("classWeights", when(col('label') == 0, balance_ratio).otherwise(1 - balance_ratio))
+
+
+
+
 
     df_scale.write.mode("overwrite").parquet("/home/skalogerakis/Projects/MillionSongBigData/parquetAfterProcess")
 
