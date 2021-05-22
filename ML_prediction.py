@@ -217,7 +217,7 @@ if __name__ == "__main__":
     print("Validation Dataset Count: ", str(validationData.count()))
     print("Total Sanity: ", str(trainingData.count() + testData.count() + validationData.count()))
 
-    logistic_regression(trainingData=trainingData, testData=testData)
+    # logistic_regression(trainingData=trainingData, testData=testData)
     # decision_tree_classifier(trainingData=trainingData,testData=testData)
     # random_forest_classifier(trainingData=trainingData,testData=testData)
     # gradient_boosted_tree_classifier(trainingData=trainingData, testData=testData)

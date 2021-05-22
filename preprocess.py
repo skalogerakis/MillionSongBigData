@@ -19,6 +19,7 @@ from pyspark.ml.feature import VectorAssembler
 from pyspark.ml.stat import Correlation
 from pyspark.ml.feature import MinMaxScaler
 from pyspark.sql.functions import monotonically_increasing_id
+import pyspark.sql.functions as F
 
 
 def correlation_heatmap(corrmatrix, columns):
@@ -38,6 +39,9 @@ def correlation_checker(parquetFile):
     # 'energy', 'key_confidence', 'start_of_fade_out', 'tempo', 'time_signature_confidence', 'artist_playmeid',
     # 'artist_7digitalid', 'release_7digitalid', 'track_7digitalid', 'key', 'mode', 'time_signature', 'year', 'label')
 
+    # parquetFile.select("segments_loudness_max").show(10, False)
+
+
     '''
     Try 1: Attributes artist_latitude and artist_longitude seem to be very sparse so they it require to skip a lot of values.
         However they seem irrelevant with the year prediction of a song, so omit them
@@ -55,7 +59,7 @@ def correlation_checker(parquetFile):
                                           'mode_confidence', 'time_signature',
                                           'year', 'label')
 
-    feature_selector.show(10)
+
     feature_selector.describe().show()
 
     columns = ['artist_familiarity', 'artist_hotttnesss', 'song_hotttnesss', 'duration',
@@ -76,9 +80,10 @@ def correlation_checker(parquetFile):
     corrmatrix = matrix.toArray().tolist()
     print(corrmatrix)
 
+    # Check what if scaling causes any differences. This heatmap should showcase only the non-highly correlated elements
     correlation_heatmap(corrmatrix, columns)
 
-# Results pretty much the same as the non-scaled version
+# Results pretty much the same as the non-scaled version. Now however only the important and non-correlated features should exist
 def correlation_scaled_checker(scaled_dataset):
 
     '''
@@ -94,6 +99,12 @@ def correlation_scaled_checker(scaled_dataset):
     print(corrmatrix)
 
     correlation_heatmap(corrmatrix, columns)
+
+def array_splitter(arr):
+    # print(arr[-3:])
+    # Initial approach with 3 elements from max and 3 from min produced highly correlated results
+    return arr[:3] + [0] * (3 - len(arr[:3])) + arr[-3:] + [0] * (3 - len(arr[-3:]))
+
 
 
 # Main Function
@@ -114,11 +125,45 @@ if __name__ == "__main__":
 
     # correlation_checker(parquetFile)
 
-    feature_selector = parquetFile.select("artist_familiarity", "end_of_fade_in", "start_of_fade_out", "tempo",
+    # LEGACY -> UDF method fetching multiple elements from array features
+    pad_fix_length = F.udf(
+        lambda arr: array_splitter(arr),
+        ArrayType(FloatType())
+    )
+
+    # Initial approach. Trying to fetch multiple min, max values per array attribute. Too many correlated elements, try different approach
+    # parquetFile = parquetFile.withColumn('segments_loudness_max_norm', pad_fix_length(F.sort_array(col('beats_confidence'), asc=False)))
+
+
+
+    parquetFile = parquetFile.withColumn('bars_confidence_max', F.array_max(col('bars_confidence')))
+    parquetFile = parquetFile.withColumn('bars_start_max', F.array_max(col('bars_start')))
+    parquetFile = parquetFile.withColumn('beats_confidence_max', F.array_max(col('beats_confidence')))
+    parquetFile = parquetFile.withColumn('segments_confidence_max', F.array_max(col('segments_confidence')))
+    parquetFile = parquetFile.withColumn('segments_loudness_max_time_max',
+                                         F.array_max(col('segments_loudness_max_time')))
+    parquetFile = parquetFile.withColumn('tatums_confidence_max', F.array_max(col('tatums_confidence')))
+
+    parquetFile = parquetFile.withColumn('bars_confidence_min', F.array_min(col('bars_confidence')))
+    parquetFile = parquetFile.withColumn('bars_start_min', F.array_min(col('bars_start')))
+    parquetFile = parquetFile.withColumn('beats_confidence_min', F.array_min(col('beats_confidence')))
+    parquetFile = parquetFile.withColumn('segments_confidence_min', F.array_min(col('segments_confidence')))
+    parquetFile = parquetFile.withColumn('segments_loudness_max_time_min',
+                                         F.array_min(col('segments_loudness_max_time')))
+    parquetFile = parquetFile.withColumn('tatums_confidence_min', F.array_min(col('tatums_confidence')))
+
+    feature_selector = parquetFile.select("artist_familiarity", "end_of_fade_in", "tempo",
                                           "time_signature_confidence",
                                           "artist_playmeid", "artist_7digitalid", "release_7digitalid",
-                                          "track_7digitalid", "key", "loudness", "mode",
-                                          "mode_confidence", "time_signature", "label")
+                                          "key", "loudness", "mode",
+                                          "mode_confidence", "time_signature", "label",
+                                          "bars_confidence_max", "beats_confidence_max", "bars_start_max",
+                                           "segments_confidence_max", "segments_loudness_max_time_max",
+                                           "tatums_confidence_max",
+                                          "bars_confidence_min",
+                                         "beats_confidence_min", "bars_start_min",
+                                           "segments_confidence_min", "segments_loudness_max_time_min",
+                                          "tatums_confidence_min")
 
 
 
@@ -137,26 +182,21 @@ if __name__ == "__main__":
     #            "track_7digitalid", "key", "loudness", "mode",
     #            "mode_confidence", "time_signature", "label"]
 
-    columns = ["artist_familiarity", "end_of_fade_in", "start_of_fade_out", "tempo",
+
+    columns = ["artist_familiarity", "end_of_fade_in", "tempo",
                                           "time_signature_confidence",
                                           "artist_playmeid", "artist_7digitalid", "release_7digitalid",
-                                          "track_7digitalid", "key", "loudness", "mode",
-                                          "mode_confidence", "time_signature"]
+                                          "key", "loudness", "mode",
+                                          "mode_confidence", "time_signature", "label",
+                                          "bars_confidence_max", "beats_confidence_max", "bars_start_max",
+                                           "segments_confidence_max", "segments_loudness_max_time_max",
+                                           "tatums_confidence_max",
+                                          "bars_confidence_min",
+                                         "beats_confidence_min", "bars_start_min",
+                                           "segments_confidence_min", "segments_loudness_max_time_min",
+                                          "tatums_confidence_min"]
 
-    # selected features
-    # feature_cols = ['artist_familiarity', 'artist_hotttnesss', 'danceability', 'duration', 'end_of_fade_in', \\\n#            'energy', 'key', 'key_confidence', 'loudness', 'mode', 'mode_confidence', 'song_hotttnesss', \\\n#            'start_of_fade_out', 'tempo', 'time_signature', 'time_signature_confidence', 'year']
-    # selected scalar features
-    # feature_cols = ['artist_familiarity', 'danceability', 'duration', 'end_of_fade_in',
-    #                 'key', 'key_confidence', 'loudness', 'mode',
-    #                 'tempo', 'time_signature', 'time_signature_confidence']
 
-    # for i in range(10):
-    #     feature_cols.append('segments_loudness_max_time_' + str(i))
-    #     feature_cols.append('segments_loudness_max_' + str(i))
-    #     feature_cols.append('segments_confidence_' + str(i))
-    #     for i in range(120):
-    #         feature_cols.append('segments_pitches_' + str(i))
-    #         feature_cols.append('segments_timbre_' + str(i))
 
     assembler = VectorAssembler(inputCols=columns, outputCol="raw_features").setHandleInvalid("skip")
 
@@ -168,6 +208,7 @@ if __name__ == "__main__":
     scaler = MinMaxScaler(inputCol="raw_features", outputCol="scaled_features")
     scalerModel = scaler.fit(df_scale)
     df_scale = scalerModel.transform(df_scale).select('label','scaled_features').persist(pyspark.StorageLevel.DISK_ONLY)
+
 
     print("Sanity check counter ", df_scale.count())
 
