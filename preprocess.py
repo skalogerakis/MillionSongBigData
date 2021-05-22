@@ -105,7 +105,32 @@ def array_splitter(arr):
     # Initial approach with 3 elements from max and 3 from min produced highly correlated results
     return arr[:3] + [0] * (3 - len(arr[:3])) + arr[-3:] + [0] * (3 - len(arr[-3:]))
 
+def min_element_column(parquetFiles):
+    parquetFiles = parquetFiles.withColumn('bars_confidence_min', F.array_min(col('bars_confidence')))
+    parquetFiles = parquetFiles.withColumn('bars_start_min', F.array_min(col('bars_start')))
+    parquetFiles = parquetFiles.withColumn('beats_confidence_min', F.array_min(col('beats_confidence')))
+    parquetFiles = parquetFiles.withColumn('segments_confidence_min', F.array_min(col('segments_confidence')))
+    parquetFiles = parquetFiles.withColumn('segments_loudness_max_time_min',
+                                         F.array_min(col('segments_loudness_max_time')))
+    parquetFiles = parquetFiles.withColumn('tatums_confidence_min', F.array_min(col('tatums_confidence')))
 
+    return parquetFiles
+
+def max_element_column(parquetFiles):
+    parquetFiles = parquetFiles.withColumn('bars_confidence_max', F.array_max(col('bars_confidence')))
+    parquetFiles = parquetFiles.withColumn('bars_start_max', F.array_max(col('bars_start')))
+    parquetFiles = parquetFiles.withColumn('beats_confidence_max', F.array_max(col('beats_confidence')))
+    parquetFiles = parquetFiles.withColumn('segments_confidence_max', F.array_max(col('segments_confidence')))
+    parquetFiles = parquetFiles.withColumn('segments_loudness_max_time_max',
+                                           F.array_max(col('segments_loudness_max_time')))
+    parquetFiles = parquetFiles.withColumn('tatums_confidence_max', F.array_max(col('tatums_confidence')))
+
+    return parquetFiles
+
+def array_element_column(parquetFiler):
+    parquetFiler = max_element_column(parquetFiler)
+    parquetFiler = min_element_column(parquetFiler)
+    return parquetFiler
 
 # Main Function
 if __name__ == "__main__":
@@ -135,35 +160,30 @@ if __name__ == "__main__":
     # parquetFile = parquetFile.withColumn('segments_loudness_max_norm', pad_fix_length(F.sort_array(col('beats_confidence'), asc=False)))
 
 
-
-    parquetFile = parquetFile.withColumn('bars_confidence_max', F.array_max(col('bars_confidence')))
-    parquetFile = parquetFile.withColumn('bars_start_max', F.array_max(col('bars_start')))
-    parquetFile = parquetFile.withColumn('beats_confidence_max', F.array_max(col('beats_confidence')))
-    parquetFile = parquetFile.withColumn('segments_confidence_max', F.array_max(col('segments_confidence')))
-    parquetFile = parquetFile.withColumn('segments_loudness_max_time_max',
-                                         F.array_max(col('segments_loudness_max_time')))
-    parquetFile = parquetFile.withColumn('tatums_confidence_max', F.array_max(col('tatums_confidence')))
-
-    parquetFile = parquetFile.withColumn('bars_confidence_min', F.array_min(col('bars_confidence')))
-    parquetFile = parquetFile.withColumn('bars_start_min', F.array_min(col('bars_start')))
-    parquetFile = parquetFile.withColumn('beats_confidence_min', F.array_min(col('beats_confidence')))
-    parquetFile = parquetFile.withColumn('segments_confidence_min', F.array_min(col('segments_confidence')))
-    parquetFile = parquetFile.withColumn('segments_loudness_max_time_min',
-                                         F.array_min(col('segments_loudness_max_time')))
-    parquetFile = parquetFile.withColumn('tatums_confidence_min', F.array_min(col('tatums_confidence')))
+    parquetFile = array_element_column(parquetFiler=parquetFile)
+    # parquetFile = parquetFile.withColumn('bars_confidence_max', F.array_max(col('bars_confidence')))
+    # parquetFile = parquetFile.withColumn('bars_start_max', F.array_max(col('bars_start')))
+    # parquetFile = parquetFile.withColumn('beats_confidence_max', F.array_max(col('beats_confidence')))
+    # parquetFile = parquetFile.withColumn('segments_confidence_max', F.array_max(col('segments_confidence')))
+    # parquetFile = parquetFile.withColumn('segments_loudness_max_time_max',
+    #                                      F.array_max(col('segments_loudness_max_time')))
+    # parquetFile = parquetFile.withColumn('tatums_confidence_max', F.array_max(col('tatums_confidence')))
+    #
+    # parquetFile = parquetFile.withColumn('bars_confidence_min', F.array_min(col('bars_confidence')))
+    # parquetFile = parquetFile.withColumn('bars_start_min', F.array_min(col('bars_start')))
+    # parquetFile = parquetFile.withColumn('beats_confidence_min', F.array_min(col('beats_confidence')))
+    # parquetFile = parquetFile.withColumn('segments_confidence_min', F.array_min(col('segments_confidence')))
+    # parquetFile = parquetFile.withColumn('segments_loudness_max_time_min',
+    #                                      F.array_min(col('segments_loudness_max_time')))
+    # parquetFile = parquetFile.withColumn('tatums_confidence_min', F.array_min(col('tatums_confidence')))
 
     feature_selector = parquetFile.select("artist_familiarity", "end_of_fade_in", "tempo",
-                                          "time_signature_confidence",
-                                          "artist_playmeid", "artist_7digitalid", "release_7digitalid",
-                                          "key", "loudness", "mode",
-                                          "mode_confidence", "time_signature", "label",
+                                          "time_signature_confidence", "artist_playmeid", "artist_7digitalid", "release_7digitalid",
+                                          "key", "loudness", "mode", "mode_confidence", "time_signature", "label",
                                           "bars_confidence_max", "beats_confidence_max", "bars_start_max",
                                            "segments_confidence_max", "segments_loudness_max_time_max",
-                                           "tatums_confidence_max",
-                                          "bars_confidence_min",
-                                         "beats_confidence_min", "bars_start_min",
-                                           "segments_confidence_min", "segments_loudness_max_time_min",
-                                          "tatums_confidence_min")
+                                           "tatums_confidence_max", "bars_confidence_min","beats_confidence_min", "bars_start_min",
+                                           "segments_confidence_min", "segments_loudness_max_time_min", "tatums_confidence_min")
 
 
 
