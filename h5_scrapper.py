@@ -4,6 +4,7 @@ import glob
 import threading
 # import avro
 import json
+import argparse
 # from avro.datafile import DataFileWriter, DataFileReader
 # from avro.io import DatumWriter, DatumReader
 # from pyspark.sql.avro.functions import from_avro
@@ -222,12 +223,13 @@ def runtime_array(sparkContext):
 # Implementation using StructTypes instead of arrays to define schema. Seems to be a more strictly formalized
 # approach so, will use that
 @time_wrapper
-def runtime_formalized(sparkContext, sc):
-    filenames = complete_file_list('/home/skalogerakis/Documents/MillionSong/MillionSongSubset/A/M/G/')
+def runtime_formalized(sparkContext, sc, input_path, output_path):
+    filenames = complete_file_list(str(input_path))
+    # filenames = complete_file_list('/home/skalogerakis/Documents/MillionSong/MillionSongSubset/A/M')
     # filenames = complete_file_list('/home/skalogerakis/Documents/MillionSong/MillionSongSubset/A/')
 
     # IDEA 1: Parallelize per file using the command below and create initial RDDs
-    sparkContext.setLogLevel("ERROR")
+    # sparkContext.setLogLevel("ERROR")
     rdd = sparkContext.parallelize(filenames)
 
     # IDEA 1: Read h5 files and return a list of all elements
@@ -302,7 +304,9 @@ def runtime_formalized(sparkContext, sc):
                                                           when(col('year') == 0, -1).when(col('year') < 2000,
                                                                                           0).otherwise(1))
 
-    filter_label.write.mode("overwrite").parquet("/home/skalogerakis/Projects/MillionSongBigData/parquetBig")
+    # filter_label.write.mode("overwrite").parquet("/home/skalogerakis/Projects/MillionSongBigData/parquetBigT")
+    filter_label.write.mode("overwrite").parquet(str(output_path))
+
 
     '''
         # fdf.write.mode("overwrite").parquet("/home/skalogerakis/Projects/MillionSongBigData/parquetTimeBig")
@@ -317,14 +321,28 @@ def runtime_formalized(sparkContext, sc):
 
 # Main function
 if __name__ == "__main__":
+    parser = argparse.ArgumentParser(description='This is the h5 scrapper App')
+
+    parser.add_argument('--input', help='Requires file input full path')
+    parser.add_argument('--output', help='Requires file output full path')
+    args = parser.parse_args()
+
+
     # create Spark context with necessary configuration
 
     # To execute avro execution in Pycharm use the SparkSession below
     # sc = SparkSession.builder.appName('PySpark Word Count').master('local[*]').config("spark.jars.packages", "org.apache.spark:spark-avro_2.12:3.1.1").getOrCreate()
-    sc = SparkSession.builder.appName('PySpark HDF5 File parser').master('local[*]').getOrCreate()
+    # sc = SparkSession.builder.appName('PySpark HDF5 File parser').master('local[*]').getOrCreate()
 
-    sparkContext = sc.sparkContext
-    sparkContext.setLogLevel("OFF")
+
+
+    spark = SparkSession \
+        .builder \
+        .appName("PySpark HDF5 File parser") \
+        .getOrCreate()
+
+    sparkContext = spark.sparkContext
+    sparkContext.setLogLevel("ERROR")
 
     # runtime_array(sparkContext)
-    runtime_formalized(sparkContext, sc)
+    runtime_formalized(sparkContext, spark, args.input, args.output)

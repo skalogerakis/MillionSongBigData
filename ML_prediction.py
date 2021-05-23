@@ -10,7 +10,7 @@ from pyspark.ml.classification import LogisticRegression, DecisionTreeClassifier
     NaiveBayes, LinearSVC
 from pyspark.ml.evaluation import BinaryClassificationEvaluator, MulticlassClassificationEvaluator
 import pandas as pd
-
+import argparse
 import matplotlib.pyplot as plt
 import numpy as np
 from pyspark.ml.tuning import ParamGridBuilder, CrossValidator
@@ -247,7 +247,7 @@ def random_forest_classifier(training_data, test_data, validation_data):
     # print(rfModel.featureImportances)
 
     # Plot roc curve
-    roc_plot(rfModel)
+    # roc_plot(rfModel)
 
     predict_valid = rfModel.transform(validation_data)
     # predict_train = rfModel.transform(training_data)
@@ -260,6 +260,11 @@ def random_forest_classifier(training_data, test_data, validation_data):
 
     model_evaluator(evaluator=evaluator, evaluator_name="areaUnderROC", data=predict_valid,
                     data_type="valid_data")
+
+    predict_final = rfModel.transform(test_data)
+
+    model_evaluator(evaluator=evaluator, evaluator_name="areaUnderROC", data=predict_final,
+                    data_type="test_data")
 
     # print("\n\nParameter Grid and cross validation")
     # paramGrid = ParamGridBuilder() \
@@ -378,14 +383,25 @@ def baseline_model(df_data):
 
 # Just a word count sanity test to make sure that pyspark works as expected
 if __name__ == "__main__":
-    # create Spark context with necessary configuration
-    sc = SparkSession.builder.appName('PySpark ML').master('local[*]').getOrCreate()
+    parser = argparse.ArgumentParser(description='This is the preprocessing step app')
 
-    sparkContext = sc.sparkContext
+    parser.add_argument('--input', help='Requires file input full path')
+    args = parser.parse_args()
+
+    spark = SparkSession \
+        .builder \
+        .appName("PySpark ML") \
+        .getOrCreate()
+    # create Spark context with necessary configuration
+    # sc = SparkSession.builder.appName('PySpark ML').master('local[*]').getOrCreate()
+    #
+    sparkContext = spark.sparkContext
     sparkContext.setLogLevel("OFF")
+    # sc.setLogLevel("OFF")
 
     # Persist as we will use this multiple times
-    df_parquet = sc.read.parquet("/home/skalogerakis/Projects/MillionSongBigData/parquetAfterProcess").persist()
+    # df_parquet = spark.read.parquet("/home/skalogerakis/Projects/MillionSongBigData/parquetAfterProcessT").persist()
+    df_parquet = spark.read.parquet(str(args.input)).persist()
 
     # Sanity check print schema and some of the values
     df_parquet.printSchema()

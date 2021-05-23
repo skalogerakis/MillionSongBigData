@@ -1,0 +1,10 @@
+# Spark-shell and final execution commands
+
+# Execute scrapper
+./spark-submit --py-files /home/skalogerakis/Projects/MillionSongBigData/hdf5_getters.py /home/skalogerakis/Projects/MillionSongBigData/h5_scrapper.py --input /home/skalogerakis/Documents/MillionSong/MillionSongSubset/A/M --output /home/skalogerakis/Projects/MillionSongBigData/parquetTester
+
+# Execute preprocess
+./spark-submit /home/skalogerakis/Projects/MillionSongBigData/preprocess.py --input /home/skalogerakis/Projects/MillionSongBigData/parquetTester --output /home/skalogerakis/Projects/MillionSongBigData/parquetTesterNew
+
+# Execute ML
+./spark-submit /home/skalogerakis/Projects/MillionSongBigData/ML_prediction.py --input /home/skalogerakis/Projects/MillionSongBigData/parquetTesterNew

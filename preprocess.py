@@ -8,6 +8,7 @@ from pyspark.sql.functions import *
 import seaborn as sns
 from hdf5_getters import *
 import pyspark
+import argparse
 from pyspark.sql import SparkSession
 import matplotlib.pyplot as plt
 import matplotlib.cm as cm
@@ -130,13 +131,28 @@ def array_element_column(parquetFiler):
 
 # Main Function
 if __name__ == "__main__":
+    parser = argparse.ArgumentParser(description='This is the preprocessing step app')
+
+    parser.add_argument('--input', help='Requires file input full path')
+    parser.add_argument('--output', help='Requires file output full path')
+    args = parser.parse_args()
+
     # create Spark context with necessary configuration
-    sc = SparkSession.builder.appName('PySpark Preprocessing').master('local[*]').getOrCreate()
+    # sc = SparkSession.builder.appName('PySpark Preprocessing').master('local[*]').getOrCreate()
+    #
+    # sparkContext = sc.sparkContext
+    # sparkContext.setLogLevel("OFF")
 
-    sparkContext = sc.sparkContext
-    sparkContext.setLogLevel("OFF")
+    spark = SparkSession \
+        .builder \
+        .appName("PySpark Preprocessing") \
+        .getOrCreate()
 
-    parquetFile = sc.read.parquet("/home/skalogerakis/Projects/MillionSongBigData/parquetTimeBig")
+    sparkContext = spark.sparkContext
+    sparkContext.setLogLevel("ERROR")
+
+    # parquetFile = sc.read.parquet("/home/skalogerakis/Projects/MillionSongBigData/parquetBigT")
+    parquetFile = spark.read.parquet(str(args.input))
 
     # Parquet files can also be used to create a temporary view and then used in SQL statements.
     parquetFile.printSchema()
@@ -144,7 +160,7 @@ if __name__ == "__main__":
     print("Sanity check counter ", parquetFile.count())
     print(len(parquetFile.columns))
 
-    correlation_checker(parquetFile)
+    # correlation_checker(parquetFile)
 
     # LEGACY -> UDF method fetching multiple elements from array features
     pad_fix_length = F.udf(
@@ -245,7 +261,8 @@ if __name__ == "__main__":
 
     df_scale = df_scale.withColumn("classWeights", when(col("label") == 1, weight_fraud).otherwise(weight_no_fraud))
 
-    df_scale.write.mode("overwrite").parquet("/home/skalogerakis/Projects/MillionSongBigData/parquetAfterProcess")
+    # df_scale.write.mode("overwrite").parquet("/home/skalogerakis/Projects/MillionSongBigData/parquetAfterProcessT")
+    df_scale.write.mode("overwrite").parquet(str(args.output))
 
     df_scale.select('*').show(20, False)
 
