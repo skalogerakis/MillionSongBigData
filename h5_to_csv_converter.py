@@ -76,7 +76,7 @@ def hd5_single_random_file_parser():
 
     fields = ['Title', 'Artist ID']
 
-    with open('Tester.csv', 'w', newline='') as csvfile:
+    with open('Tester2.csv', 'w', newline='') as csvfile:
         csv_writer = csv.writer(csvfile, delimiter=';')
 
         # writing the fields
@@ -100,7 +100,7 @@ def complete_hd5_to_csv(basedir):
               'Mode', 'Mode Confidence', 'Start of fade out', 'Tempo', 'Time signature', 'Time signature confidence',
               'Track ID', 'Year']
 
-    with open('Tester.csv', 'w', newline='') as csvfile:
+    with open('Tester2.csv', 'w', newline='') as csvfile:
         csv_writer = csv.writer(csvfile, delimiter=';')
 
         # writing the header line. This line contains the schema of the data

@@ -11,11 +11,28 @@ import argparse
 from pyspark.sql.types import *
 import time
 from functools import wraps
-
+import hdf5_getters
 from hdf5_getters import *
 from pyspark.sql import SparkSession
 from pyspark.sql.types import *
 from pyspark.sql.functions import *
+
+
+def getListOfFiles(dirName):
+
+    listOfFile = os.listdir(dirName)
+    allFiles = list()
+    for entry in listOfFile:
+        fullPath = os.path.join(dirName, entry)
+
+        if os.path.isdir(fullPath):
+            allFiles = allFiles + getListOfFiles(fullPath)
+        else:
+            allFiles.append(fullPath)
+
+
+    print("Path list length ", len(allFiles))
+    return allFiles
 
 
 # Create first a function that finds all the available paths for parsing
@@ -224,7 +241,9 @@ def runtime_array(sparkContext):
 # approach so, will use that
 @time_wrapper
 def runtime_formalized(sparkContext, sc, input_path, output_path):
-    filenames = complete_file_list(str(input_path))
+    # filenames = complete_file_list(str(input_path))
+    filenames = getListOfFiles(str(input_path))
+
     # filenames = complete_file_list('/home/skalogerakis/Documents/MillionSong/MillionSongSubset/A/M')
     # filenames = complete_file_list('/home/skalogerakis/Documents/MillionSong/MillionSongSubset/A/')
 
