@@ -2,11 +2,7 @@ import os
 import sys
 import glob
 import threading
-import avro
 import json
-from avro.datafile import DataFileWriter, DataFileReader
-from avro.io import DatumWriter, DatumReader
-from pyspark.sql.avro.functions import from_avro
 from pyspark.sql.types import *
 from pyspark.sql.functions import *
 import seaborn as sns
@@ -161,21 +157,7 @@ if __name__ == "__main__":
 
 
     parquetFile = array_element_column(parquetFiler=parquetFile)
-    # parquetFile = parquetFile.withColumn('bars_confidence_max', F.array_max(col('bars_confidence')))
-    # parquetFile = parquetFile.withColumn('bars_start_max', F.array_max(col('bars_start')))
-    # parquetFile = parquetFile.withColumn('beats_confidence_max', F.array_max(col('beats_confidence')))
-    # parquetFile = parquetFile.withColumn('segments_confidence_max', F.array_max(col('segments_confidence')))
-    # parquetFile = parquetFile.withColumn('segments_loudness_max_time_max',
-    #                                      F.array_max(col('segments_loudness_max_time')))
-    # parquetFile = parquetFile.withColumn('tatums_confidence_max', F.array_max(col('tatums_confidence')))
-    #
-    # parquetFile = parquetFile.withColumn('bars_confidence_min', F.array_min(col('bars_confidence')))
-    # parquetFile = parquetFile.withColumn('bars_start_min', F.array_min(col('bars_start')))
-    # parquetFile = parquetFile.withColumn('beats_confidence_min', F.array_min(col('beats_confidence')))
-    # parquetFile = parquetFile.withColumn('segments_confidence_min', F.array_min(col('segments_confidence')))
-    # parquetFile = parquetFile.withColumn('segments_loudness_max_time_min',
-    #                                      F.array_min(col('segments_loudness_max_time')))
-    # parquetFile = parquetFile.withColumn('tatums_confidence_min', F.array_min(col('tatums_confidence')))
+
 
     feature_selector = parquetFile.select("artist_familiarity", "end_of_fade_in", "tempo",
                                           "time_signature_confidence", "artist_playmeid", "artist_7digitalid", "release_7digitalid",
@@ -229,7 +211,7 @@ if __name__ == "__main__":
     scalerModel = scaler.fit(df_scale)
     df_scale = scalerModel.transform(df_scale).select('label','scaled_features').persist(pyspark.StorageLevel.DISK_ONLY)
 
-    print("Sanity check counter ", df_scale.count())
+    print("\n\nSanity check counter ", df_scale.count())
     total_count=df_scale.count()
     zero_counter = df_scale.filter(col('label') == 0).count()
     ones_counter = df_scale.filter(col('label') == 1).count()
@@ -237,21 +219,31 @@ if __name__ == "__main__":
     print("Count 0s", zero_counter)
     print("Sanity check sum 1s and 0s", zero_counter+ones_counter)
 
-    if(zero_counter > ones_counter):
-        print("More zeros!")
-        balance_ratio= float(zero_counter)/float(total_count)
-        print('BalancingRatio = {}'.format(balance_ratio))
-        df_scale = df_scale.withColumn("classWeights", when(col('label') == 1, balance_ratio).otherwise(1 - balance_ratio))
+    # Not the best weight method. TODO find and replace with a new one
+    # if(zero_counter > ones_counter):
+    #     print("More zeros!")
+    #     balance_ratio= float(zero_counter)/float(total_count)
+    #     print('BalancingRatio = {}'.format(balance_ratio))
+    #     df_scale = df_scale.withColumn("classWeights", when(col('label') == 1, balance_ratio).otherwise(1 - balance_ratio))
+    #
+    # else:
+    #     print("More ones!")
+    #     balance_ratio = float(ones_counter) / float(total_count)
+    #     print('BalancingRatio = {}'.format(balance_ratio))
+    #     df_scale = df_scale.withColumn("classWeights", when(col('label') == 0, balance_ratio).otherwise(1 - balance_ratio))
 
-    else:
-        print("More ones!")
-        balance_ratio = float(ones_counter) / float(total_count)
-        print('BalancingRatio = {}'.format(balance_ratio))
-        df_scale = df_scale.withColumn("classWeights", when(col('label') == 0, balance_ratio).otherwise(1 - balance_ratio))
+    # counts = df_scale.groupBy('label').count().toPandas()
+    # print(counts)
 
+    # count_fraud = counts[counts['outcome'] == 1]['count'].values[0]
+    # count_total = counts['count'].sum()
 
+    # Weights
+    c = 2
+    weight_fraud = total_count / (c * ones_counter)
+    weight_no_fraud = total_count / (c * (total_count - ones_counter))
 
-
+    df_scale = df_scale.withColumn("classWeights", when(col("label") == 1, weight_fraud).otherwise(weight_no_fraud))
 
     df_scale.write.mode("overwrite").parquet("/home/skalogerakis/Projects/MillionSongBigData/parquetAfterProcess")
 

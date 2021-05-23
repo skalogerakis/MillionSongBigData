@@ -2,11 +2,11 @@ import os
 import sys
 import glob
 import threading
-import avro
+# import avro
 import json
-from avro.datafile import DataFileWriter, DataFileReader
-from avro.io import DatumWriter, DatumReader
-from pyspark.sql.avro.functions import from_avro
+# from avro.datafile import DataFileWriter, DataFileReader
+# from avro.io import DatumWriter, DatumReader
+# from pyspark.sql.avro.functions import from_avro
 from pyspark.sql.types import *
 import time
 from functools import wraps
@@ -231,7 +231,7 @@ def runtime_formalized(sparkContext, sc):
     rdd = sparkContext.parallelize(filenames)
 
     # IDEA 1: Read h5 files and return a list of all elements
-    transformed_rdd = rdd.map(lambda x: read_h5_to_tuple(x))
+    transformed_rdd = rdd.map(lambda x: read_h5_to_tuple(x)).persist()
 
     # Print a few stuff for debugging purposes
     print("Num of partitions ", transformed_rdd.getNumPartitions())
