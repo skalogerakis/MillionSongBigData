@@ -144,7 +144,7 @@ if __name__ == "__main__":
     print("Sanity check counter ", parquetFile.count())
     print(len(parquetFile.columns))
 
-    # correlation_checker(parquetFile)
+    correlation_checker(parquetFile)
 
     # LEGACY -> UDF method fetching multiple elements from array features
     pad_fix_length = F.udf(
