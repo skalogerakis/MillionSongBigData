@@ -20,6 +20,9 @@ from pyspark.sql.functions import monotonically_increasing_id
 import pyspark.sql.functions as F
 
 
+'''
+    Showcases the final heatmap using seaborn lib
+'''
 def correlation_heatmap(corrmatrix, columns):
     # Heatmap produces NaN when values don't vary between them
     # annot = True to showcase values in each cell
@@ -30,6 +33,9 @@ def correlation_heatmap(corrmatrix, columns):
     plt.show()
 
 
+'''
+    Initial correlation check for only the numerical fields.
+'''
 def correlation_checker(parquetFile):
     #
     # feature_selector = parquetFile.select('artist_familiarity', 'artist_hotttnesss', 'artist_latitude',
@@ -39,7 +45,6 @@ def correlation_checker(parquetFile):
 
     # parquetFile.select("segments_loudness_max").show(10, False)
 
-
     '''
     Try 1: Attributes artist_latitude and artist_longitude seem to be very sparse so they it require to skip a lot of values.
         However they seem irrelevant with the year prediction of a song, so omit them
@@ -47,7 +52,7 @@ def correlation_checker(parquetFile):
         So the correlation map, they get NaN values which is expected. Omit them as well
     '''
 
-    #   TODO check what to do with file song_hotttnesss. For the time being omit that
+
     feature_selector = parquetFile.select('artist_familiarity', 'artist_hotttnesss', 'song_hotttnesss', 'duration',
                                           'end_of_fade_in',
                                           'key_confidence', 'start_of_fade_out', 'tempo', 'time_signature_confidence',
@@ -56,7 +61,6 @@ def correlation_checker(parquetFile):
                                           'loudness', 'mode',
                                           'mode_confidence', 'time_signature',
                                           'year', 'label')
-
 
     feature_selector.describe().show()
 
@@ -81,9 +85,11 @@ def correlation_checker(parquetFile):
     # Check what if scaling causes any differences. This heatmap should showcase only the non-highly correlated elements
     correlation_heatmap(corrmatrix, columns)
 
-# Results pretty much the same as the non-scaled version. Now however only the important and non-correlated features should exist
-def correlation_scaled_checker(scaled_dataset):
 
+'''
+    Checks the correlation only on the selected and scaled features. Only the non-correlated features should exist here
+'''
+def correlation_scaled_checker(scaled_dataset):
     '''
     Try 1: Attributes artist_latitude and artist_longitude seem to be very sparse so they it require to skip a lot of values.
         However they seem irrelevant with the year prediction of a song, so omit them
@@ -98,10 +104,13 @@ def correlation_scaled_checker(scaled_dataset):
 
     correlation_heatmap(corrmatrix, columns)
 
+
 '''
     LEGACY: Part of str_cleaner function. From documentation it is mentioned that some string entries where symbols, so in order not 
     to come up with that problem use this function and in a case like this, replace those entries with empty string(omitted afterwards)
 '''
+
+
 def contains_non_ascii(cur_str):
     if (cur_str.isascii()):
         return cur_str
@@ -109,10 +118,13 @@ def contains_non_ascii(cur_str):
         # Non-ascii characters, simply return an empty element which will be omitted later
         return ""
 
+
 '''
     LEGACY: Part of str_cleaner function. As we will transform string into numbers, we don't really care about human readable part. Also in some
     cases strings could contain more spaces by mistake.
 '''
+
+
 def space_remover(cur_str):
     return cur_str.replace(" ", "")
 
@@ -120,21 +132,29 @@ def space_remover(cur_str):
 '''
     LEGACY: Part of str_cleaner function. Convert everything in lower_case so that we wont lose information from capitalized words
 '''
+
+
 def to_lower_case(cur_str):
     return cur_str.lower()
+
 
 '''
     LEGACY: Part of str_cleaner function. Remove here all the special characters contained in a string
 '''
+
+
 def remove_special(cur_str):
     str_fin = ''.join(e for e in cur_str if e.isalnum())
     return str_fin
+
 
 '''
     LEGACY: Used in the initial approach while using string fields. These fields where in many cases 'dirty' and could not possibly be used.
     This method performed simple cleaning on strings including checking for non-ascii characters, removing special characters, convert everything to lower case
     and remove spaces
 '''
+
+
 def str_cleaner(cur_str):
     cur_str = contains_non_ascii(cur_str)
     # print(cur_str)
@@ -146,22 +166,32 @@ def str_cleaner(cur_str):
     # print(cur_str)
     return cur_str
 
+'''
+    LEGACY: Used this method to obtain 3 max and min elements from 1D features. Too much correlation between them, 
+    simply take max and min in the final implementation
+'''
 def array_splitter(arr):
     # print(arr[-3:])
     # Initial approach with 3 elements from max and 3 from min produced highly correlated results
     return arr[:3] + [0] * (3 - len(arr[:3])) + arr[-3:] + [0] * (3 - len(arr[-3:]))
 
+'''
+    Part of the array_element_column function. Returns the min element of a list(as dataframe entry)
+'''
 def min_element_column(parquetFiles):
     parquetFiles = parquetFiles.withColumn('bars_confidence_min', F.array_min(col('bars_confidence')))
     parquetFiles = parquetFiles.withColumn('bars_start_min', F.array_min(col('bars_start')))
     parquetFiles = parquetFiles.withColumn('beats_confidence_min', F.array_min(col('beats_confidence')))
     parquetFiles = parquetFiles.withColumn('segments_confidence_min', F.array_min(col('segments_confidence')))
     parquetFiles = parquetFiles.withColumn('segments_loudness_max_time_min',
-                                         F.array_min(col('segments_loudness_max_time')))
+                                           F.array_min(col('segments_loudness_max_time')))
     parquetFiles = parquetFiles.withColumn('tatums_confidence_min', F.array_min(col('tatums_confidence')))
 
     return parquetFiles
 
+'''
+    Part of the array_element_column function. Returns the max element of a list(as dataframe entry)
+'''
 def max_element_column(parquetFiles):
     parquetFiles = parquetFiles.withColumn('bars_confidence_max', F.array_max(col('bars_confidence')))
     parquetFiles = parquetFiles.withColumn('bars_start_max', F.array_max(col('bars_start')))
@@ -173,13 +203,19 @@ def max_element_column(parquetFiles):
 
     return parquetFiles
 
+'''
+    The following function simply returns from the desired available 1D array fields(the non-highly correlated)
+    the max and min element to use as information and train our models in ML
+'''
 def array_element_column(parquetFiler):
     parquetFiler = max_element_column(parquetFiler)
     parquetFiler = min_element_column(parquetFiler)
     return parquetFiler
 
+
 # Main Function
 if __name__ == "__main__":
+    # Need to add the following arguments to execute
     parser = argparse.ArgumentParser(description='This is the preprocessing step app')
 
     parser.add_argument('--input', help='Requires file input full path')
@@ -187,21 +223,12 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     # create Spark context with necessary configuration
-    sc = SparkSession.builder.appName('PySpark Preprocessing').config("spark.driver.memory", "9g").master('local[*]').getOrCreate()
+    sc = SparkSession.builder.appName('PySpark Preprocessing').config("spark.driver.memory", "9g").master(
+        'local[*]').getOrCreate()
     #
     sparkContext = sc.sparkContext
     sparkContext.setLogLevel("ERROR")
 
-    # spark = SparkSession \
-    #     .builder \
-    #     .appName("PySpark Preprocessing") \
-    #     .getOrCreate()
-
-    # sparkContext = spark.sparkContext
-    # sparkContext.setLogLevel("ERROR")
-
-    # parquetFile = sc.read.parquet("/home/skalogerakis/Projects/MillionSongBigData/parquetBigT")
-    # --input /home/skalogerakis/Projects/MillionSongBigData/TEST/* --output hg
     parquetFile = sc.read.parquet(str(args.input))
 
     # Parquet files can also be used to create a temporary view and then used in SQL statements.
@@ -210,6 +237,7 @@ if __name__ == "__main__":
     print("Sanity check counter ", parquetFile.count())
     print(len(parquetFile.columns))
 
+    # Uncomment the following line to check the correlation between numerical fields
     # correlation_checker(parquetFile)
 
     '''
@@ -219,15 +247,15 @@ if __name__ == "__main__":
     '''
     # string_cleaner_udf = F.udf(lambda cur_str: str_cleaner(name), StringType())
     #
-    # dfParquet = parquetFile.withColumn('artist_id_clean', string_cleaner_udf(col('artist_id')))
-    # dfParquet = parquetFile.withColumn('artist_location_clean', string_cleaner_udf(col('artist_location')))
-    # dfParquet = parquetFile.withColumn('artist_mbid_clean', string_cleaner_udf(col('artist_mbid')))
-    # dfParquet = parquetFile.withColumn('artist_name_clean', string_cleaner_udf(col('artist_name')))
-    # dfParquet = parquetFile.withColumn('audio_md5_clean', string_cleaner_udf(col('audio_md5')))
-    # dfParquet = parquetFile.withColumn('release', string_cleaner_udf(col('release')))
-    # dfParquet = parquetFile.withColumn('song_id', string_cleaner_udf(col('song_id')))
-    # dfParquet = parquetFile.withColumn('title', string_cleaner_udf(col('title')))
-    # dfParquet = parquetFile.withColumn('track_id', string_cleaner_udf(col('artist_mbid')))
+    # df_parquetFile = parquetFile.withColumn('artist_id_clean', string_cleaner_udf(col('artist_id')))
+    # df_parquetFile = parquetFile.withColumn('artist_location_clean', string_cleaner_udf(col('artist_location')))
+    # df_parquetFile = parquetFile.withColumn('artist_mbid_clean', string_cleaner_udf(col('artist_mbid')))
+    # df_parquetFile = parquetFile.withColumn('artist_name_clean', string_cleaner_udf(col('artist_name')))
+    # df_parquetFile = parquetFile.withColumn('audio_md5_clean', string_cleaner_udf(col('audio_md5')))
+    # df_parquetFile = parquetFile.withColumn('release', string_cleaner_udf(col('release')))
+    # df_parquetFile = parquetFile.withColumn('song_id', string_cleaner_udf(col('song_id')))
+    # df_parquetFile = parquetFile.withColumn('title', string_cleaner_udf(col('title')))
+    # df_parquetFile = parquetFile.withColumn('track_id', string_cleaner_udf(col('artist_mbid')))
     #
     #
     # # dataset = dfParquet.select(['artist_name', 'title', 'release', 'artist_id', 'song_id', 'track_id', 'artist_location'])
@@ -237,9 +265,7 @@ if __name__ == "__main__":
     #
     # # Turn strings into numbers, so that we can use that in ML analysis
     # hasher = FeatureHasher(inputCols=str_column,outputCol="string_features")
-    # df_str = hasher.transform(dfParquet)
-
-
+    # df_str = hasher.transform(df_parquetFile)
 
     # LEGACY -> UDF method fetching multiple elements from array features
     pad_fix_length = F.udf(
@@ -253,16 +279,17 @@ if __name__ == "__main__":
     # Method to obtain the max and min values of array elements
     parquetFile = array_element_column(parquetFiler=parquetFile)
 
-
+    # Select the final features and unify them in an array using VectorAssembler
     feature_selector = parquetFile.select("artist_familiarity", "end_of_fade_in", "tempo",
-                                          "time_signature_confidence", "artist_playmeid", "artist_7digitalid", "release_7digitalid",
+                                          "time_signature_confidence", "artist_playmeid", "artist_7digitalid",
+                                          "release_7digitalid",
                                           "key", "loudness", "mode", "mode_confidence", "time_signature",
                                           "bars_confidence_max", "beats_confidence_max", "bars_start_max",
-                                           "segments_confidence_max", "segments_loudness_max_time_max",
-                                           "tatums_confidence_max", "bars_confidence_min","beats_confidence_min", "bars_start_min",
-                                           "segments_confidence_min", "segments_loudness_max_time_min", "tatums_confidence_min","label")
-
-
+                                          "segments_confidence_max", "segments_loudness_max_time_max",
+                                          "tatums_confidence_max", "bars_confidence_min", "beats_confidence_min",
+                                          "bars_start_min",
+                                          "segments_confidence_min", "segments_loudness_max_time_min",
+                                          "tatums_confidence_min", "label")
 
     # feature_selector = parquetFile.select("artist_familiarity", "end_of_fade_in", "start_of_fade_out", "tempo",
     #                                       "time_signature_confidence",
@@ -279,42 +306,40 @@ if __name__ == "__main__":
     #            "track_7digitalid", "key", "loudness", "mode",
     #            "mode_confidence", "time_signature", "label"]
 
-
     columns = ["artist_familiarity", "end_of_fade_in", "tempo",
-                                          "time_signature_confidence",
-                                          "artist_playmeid", "artist_7digitalid", "release_7digitalid",
-                                          "key", "loudness", "mode",
-                                          "mode_confidence", "time_signature",
-                                          "bars_confidence_max", "beats_confidence_max", "bars_start_max",
-                                           "segments_confidence_max", "segments_loudness_max_time_max",
-                                           "tatums_confidence_max",
-                                          "bars_confidence_min",
-                                         "beats_confidence_min", "bars_start_min",
-                                           "segments_confidence_min", "segments_loudness_max_time_min",
-                                          "tatums_confidence_min"]
-
-
+               "time_signature_confidence",
+               "artist_playmeid", "artist_7digitalid", "release_7digitalid",
+               "key", "loudness", "mode",
+               "mode_confidence", "time_signature",
+               "bars_confidence_max", "beats_confidence_max", "bars_start_max",
+               "segments_confidence_max", "segments_loudness_max_time_max",
+               "tatums_confidence_max",
+               "bars_confidence_min",
+               "beats_confidence_min", "bars_start_min",
+               "segments_confidence_min", "segments_loudness_max_time_min",
+               "tatums_confidence_min"]
 
     assembler = VectorAssembler(inputCols=columns, outputCol="raw_features").setHandleInvalid("skip")
 
-    df_scale = assembler.transform(feature_selector).select('label','raw_features')
+    df_scale = assembler.transform(feature_selector).select('label', 'raw_features')
     # Most classifiers use some form of a distance calculation and each numeric feature tends to have different
     # ranges, some more broad than others. Scaling these features helps ensure that each feature’s contribution is
     # weighted proportionally.
     # https://albertdchiu.medium.com/a-step-by-step-example-in-binary-classification-5dac0f1ba2dd
     scaler = MinMaxScaler(inputCol="raw_features", outputCol="scaled_features")
     scalerModel = scaler.fit(df_scale)
-    df_scale = scalerModel.transform(df_scale).select('label','scaled_features').persist(pyspark.StorageLevel.DISK_ONLY)
+    df_scale = scalerModel.transform(df_scale).select('label', 'scaled_features').persist(
+        pyspark.StorageLevel.DISK_ONLY)
 
     print("\n\nSanity check counter ", df_scale.count())
-    total_count=df_scale.count()
+    total_count = df_scale.count()
     zero_counter = df_scale.filter(col('label') == 0).count()
     ones_counter = df_scale.filter(col('label') == 1).count()
     print("Count 1s :", ones_counter)
     print("Count 0s", zero_counter)
-    print("Sanity check sum 1s and 0s", zero_counter+ones_counter)
+    print("Sanity check sum 1s and 0s", zero_counter + ones_counter)
 
-    # Not the best weight method. TODO find and replace with a new one
+    # Not the best weight method. The
     # if(zero_counter > ones_counter):
     #     print("More zeros!")
     #     balance_ratio= float(zero_counter)/float(total_count)
@@ -327,25 +352,17 @@ if __name__ == "__main__":
     #     print('BalancingRatio = {}'.format(balance_ratio))
     #     df_scale = df_scale.withColumn("classWeights", when(col('label') == 0, balance_ratio).otherwise(1 - balance_ratio))
 
-    # counts = df_scale.groupBy('label').count().toPandas()
-    # print(counts)
-
-    # count_fraud = counts[counts['outcome'] == 1]['count'].values[0]
-    # count_total = counts['count'].sum()
-
     # Weights
+    # C represent the number of available classes. In our case binary classification, so we have two classes
     c = 2
     weight_fraud = total_count / (c * ones_counter)
     weight_no_fraud = total_count / (c * (total_count - ones_counter))
 
     df_scale = df_scale.withColumn("classWeights", when(col("label") == 1, weight_fraud).otherwise(weight_no_fraud))
 
-    # df_scale.write.mode("overwrite").parquet("/home/skalogerakis/Projects/MillionSongBigData/parquetAfterProcessT")
     df_scale.write.mode("overwrite").parquet(str(args.output))
 
     df_scale.select('*').show(20, False)
 
+    # Uncomment the following line to check the correlation of the final features
     # correlation_scaled_checker(df_scale)
-
-
-

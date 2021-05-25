@@ -17,7 +17,11 @@ from pyspark.sql import SparkSession
 from pyspark.sql.types import *
 from pyspark.sql.functions import *
 
-# Create first a function that finds all the available paths for parsing
+'''
+    Create first a function that finds all the available paths for parsing
+'''
+
+
 def complete_file_list(basedir):
     ext = '.h5'  # Get all files with extension .h5
     total_file_list = []  # Create first an empty list
@@ -32,13 +36,18 @@ def complete_file_list(basedir):
     print("Path list length ", len(total_file_list))
     return total_file_list
 
-# Time decorator to evaluate performance
+
+'''
+Time decorator to evaluate performance
+'''
+
+
 def time_wrapper(func):
     def measure_time(*args, **kwargs):
         # Start time function
         start_time = time.time()
 
-        # Function excecution and get results
+        # Function execution and get results
         results = func(*args, **kwargs)
 
         # Print the results
@@ -48,7 +57,11 @@ def time_wrapper(func):
     return measure_time
 
 
-# Parse hdf5 file and return all song elements as list
+'''
+ Parse hdf5 file and return all song elements as list
+'''
+
+
 def read_h5_to_list(filename):
     h5 = open_h5_file_read(filename)
 
@@ -117,7 +130,11 @@ def read_h5_to_list(filename):
     return song_info
 
 
-# Parse hdf5 element and return everything as a tuple. Seems more suitable for instant fit in dataframes
+'''
+ Parse hdf5 element and return everything as a tuple. Seems more suitable for instant fit in dataframes
+'''
+
+
 def read_h5_to_tuple(filename):
     h5 = open_h5_file_read(filename)
 
@@ -179,10 +196,15 @@ def write_h5_to_avro_instant(filename):
     return song_info
 
 
-# Implementation with array schema in use. Works correctly however a little difficult to use
+'''
+ Implementation with array schema in use. Works correctly however a little difficult to use
+
+'''
+
+
 @time_wrapper
-def runtime_array(sparkContext):
-    filenames = complete_file_list('/home/skalogerakis/Documents/MillionSong/MillionSongSubset/A/M')
+def runtime_array(sparkContext, input_path, output_path):
+    filenames = complete_file_list(str(input_path))
     print(len(filenames))
 
     # IDEA 1: Parallelize per file using the command below and create initial RDDs
@@ -212,22 +234,24 @@ def runtime_array(sparkContext):
     df1.printSchema()
     df1.show(10, True, True)
 
+    # At this stage create the required labels
     filter_label = df1.filter(col('year') != 0).withColumn('label',
                                                            when(col('year') == 0, -1).when(col('year') < 2000,
                                                                                            0).otherwise(1))
 
-    # filter_label.write.mode("overwrite").parquet("/home/skalogerakis/Projects/MillionSongBigData/parquetFile")
+    filter_label.write.mode("overwrite").parquet(str(output_path))
 
 
-# Implementation using StructTypes instead of arrays to define schema. Seems to be a more strictly formalized
-# approach so, will use that
+'''
+ Implementation using StructTypes instead of arrays to define schema. Seems to be a more strictly formalized
+ approach so, will use that
+'''
+
+
 @time_wrapper
 def runtime_formalized(sparkContext, sc, input_path, output_path):
     filenames = complete_file_list(str(input_path))
     # filenames = getListOfFiles(str(input_path))
-
-    # filenames = complete_file_list('/home/skalogerakis/Documents/MillionSong/MillionSongSubset/A/M')
-    # filenames = complete_file_list('/home/skalogerakis/Documents/MillionSong/MillionSongSubset/A/')
 
     # IDEA 1: Parallelize per file using the command below and create initial RDDs
     # sparkContext.setLogLevel("ERROR")
@@ -240,6 +264,7 @@ def runtime_formalized(sparkContext, sc, input_path, output_path):
     print("Num of partitions ", transformed_rdd.getNumPartitions())
     print("Count ", transformed_rdd.count())
 
+    # At this stage don't omit any data leave that for the next stage
     schema = StructType([
         StructField("title", StringType(), True),
         StructField("artist_familiarity", FloatType(), True),
@@ -297,17 +322,18 @@ def runtime_formalized(sparkContext, sc, input_path, output_path):
         StructField("tatums_start", ArrayType(FloatType()), True),
     ])
 
+    # Create Dataframe based on the schema above
     df = sc.createDataFrame(data=transformed_rdd, schema=schema)
     df.printSchema()
     df.show(2, True, True)
 
+    # At this stage create the required labels
     filter_label = df.filter(col('year') != 0).withColumn('label',
                                                           when(col('year') == 0, -1).when(col('year') < 2000,
                                                                                           0).otherwise(1))
 
     print(filter_label.count())
 
-    # filter_label.write.mode("overwrite").parquet("/home/skalogerakis/Projects/MillionSongBigData/parquetBigT")
     filter_label.write.mode("overwrite").parquet(str(output_path))
 
     '''
@@ -323,20 +349,19 @@ def runtime_formalized(sparkContext, sc, input_path, output_path):
 
 # Main function
 if __name__ == "__main__":
+    # Give the following parameter in order to execute
     parser = argparse.ArgumentParser(description='This is the h5 scrapper App')
 
     parser.add_argument('--input', help='Requires file input full path')
     parser.add_argument('--output', help='Requires file output full path')
     args = parser.parse_args()
 
-
     # create Spark context with necessary configuration
 
     # To execute avro execution in Pycharm use the SparkSession below
     # sc = SparkSession.builder.appName('PySpark Word Count').master('local[*]').config("spark.jars.packages", "org.apache.spark:spark-avro_2.12:3.1.1").getOrCreate()
-    sc = SparkSession.builder.appName('PySpark HDF5 File parser').master('local[*]').config("spark.driver.memory", "9g").getOrCreate()
-
-
+    sc = SparkSession.builder.appName('PySpark HDF5 File parser').master('local[*]').config("spark.driver.memory",
+                                                                                            "9g").getOrCreate()
 
     # spark = SparkSession \
     #     .builder \

@@ -19,12 +19,21 @@ from hdf5_getters import *
 import pyspark
 from pyspark.sql import SparkSession
 
+'''
+    Beta coefficient plot used in Linear Regression
+'''
+
 
 def coefficient_plot(lrModel):
     beta = np.sort(lrModel.coefficients)
     plt.plot(beta)
     plt.ylabel('Beta Coefficients')
     plt.show()
+
+
+'''
+    Roc plot used in multiple models
+'''
 
 
 def roc_plot(lrModel):
@@ -38,6 +47,11 @@ def roc_plot(lrModel):
     print('Training set areaUnderROC: ' + str(trainingSummary.areaUnderROC))
 
 
+'''
+    Precision plot in Linear Regression
+'''
+
+
 def precision_plot(lrModel):
     trainingSummary = lrModel.summary
     pr = trainingSummary.pr.toPandas()
@@ -47,10 +61,20 @@ def precision_plot(lrModel):
     plt.show()
 
 
+'''
+    Returns different plot for Linear Regression mainly
+'''
+
+
 def metric_plotting(lrModel):
     coefficient_plot(lrModel)
     roc_plot(lrModel)
     precision_plot(lrModel)
+
+
+'''
+    Returns some metrics to get a better understanding of the final results
+'''
 
 
 def evaluate_metrics(predictions):
@@ -74,8 +98,18 @@ def evaluate_metrics(predictions):
     print("ratioCorrect: ", ratioCorrect)
 
 
+'''
+    Returns the evaluation of the model
+'''
+
+
 def model_evaluator(evaluator, evaluator_name, data, data_type):
     print("\n", evaluator_name, " for", data_type, ": ", evaluator.evaluate(data))
+
+
+'''
+    Linear Regression implementation. Experimented both with and without weights, results seem similar
+'''
 
 
 def weighted_logistic_regression(training_data, test_data, validation_data):
@@ -165,6 +199,12 @@ def weighted_logistic_regression(training_data, test_data, validation_data):
 
 
 # Simple Decision tree performs poorly because it is too weak given the range of different features
+'''
+    Decision tree classifier implementation. Usually simple decision trees perform poorly because it is too weak given the range of
+    different features
+'''
+
+
 def decision_tree_classifier(training_data, test_data, validation_data):
     # ROC 0.69
     # dt = DecisionTreeClassifier(featuresCol='scaled_features', labelCol='label', maxDepth=3)
@@ -214,6 +254,11 @@ def decision_tree_classifier(training_data, test_data, validation_data):
     # ROC 0.706, Slightly better than Logistic Regresion
     model_evaluator(evaluator=evaluator, evaluator_name="areaUnderROC", data=predict_cross_valid,
                     data_type="valid_data")
+
+
+'''
+    Random forest implementation. The best performing implementation
+'''
 
 
 def random_forest_classifier(training_data, test_data, validation_data):
@@ -290,6 +335,11 @@ def random_forest_classifier(training_data, test_data, validation_data):
                     data_type="test_data")
 
 
+'''
+    Gradient boosted tree classifier implementation
+'''
+
+
 def gradient_boosted_tree_classifier(training_data, test_data, validation_data):
     # ROC: 0.71
     gbt = GBTClassifier(featuresCol='scaled_features', labelCol='label', maxIter=10)
@@ -327,7 +377,11 @@ def gradient_boosted_tree_classifier(training_data, test_data, validation_data):
                     data_type="test_data")
 
 
-# The worst of all. Don't search any further
+'''
+    Naive Bayes Classification. The worst method of all, don't research any further
+'''
+
+
 def bayes_classifier(training_data, test_data, validation_data):
     dt = NaiveBayes(featuresCol='scaled_features', labelCol='label', smoothing=0.00001)
 
@@ -343,6 +397,11 @@ def bayes_classifier(training_data, test_data, validation_data):
 
     model_evaluator(evaluator=evaluator, evaluator_name="areaUnderROC", data=predict_valid,
                     data_type="valid_data")
+
+
+'''
+    Linear Support Vector Machines implementation
+'''
 
 
 def linear_support_vector_machines(training_data, test_data, validation_data):
@@ -388,19 +447,13 @@ if __name__ == "__main__":
     parser.add_argument('--input', help='Requires file input full path')
     args = parser.parse_args()
 
-    # spark = SparkSession \
-    #     .builder \
-    #     .appName("PySpark ML") \
-    #     .getOrCreate()
     # create Spark context with necessary configuration
     sc = SparkSession.builder.appName('PySpark ML').master('local[*]').config("spark.driver.memory", "9g").getOrCreate()
     #
     sparkContext = sc.sparkContext
     sparkContext.setLogLevel("OFF")
-    # sc.setLogLevel("OFF")
 
     # Persist as we will use this multiple times
-    # df_parquet = spark.read.parquet("/home/skalogerakis/Projects/MillionSongBigData/parquetAfterProcessT").persist()
     df_parquet = sc.read.parquet(str(args.input)).persist()
 
     # Sanity check print schema and some of the values
