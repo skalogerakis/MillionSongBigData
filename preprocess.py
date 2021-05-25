@@ -13,6 +13,7 @@ from pyspark.sql import SparkSession
 import matplotlib.pyplot as plt
 import matplotlib.cm as cm
 from pyspark.ml.feature import VectorAssembler
+# import FeatureHasher
 from pyspark.ml.stat import Correlation
 from pyspark.ml.feature import MinMaxScaler
 from pyspark.sql.functions import monotonically_increasing_id
@@ -97,6 +98,54 @@ def correlation_scaled_checker(scaled_dataset):
 
     correlation_heatmap(corrmatrix, columns)
 
+'''
+    LEGACY: Part of str_cleaner function. From documentation it is mentioned that some string entries where symbols, so in order not 
+    to come up with that problem use this function and in a case like this, replace those entries with empty string(omitted afterwards)
+'''
+def contains_non_ascii(cur_str):
+    if (cur_str.isascii()):
+        return cur_str
+    else:
+        # Non-ascii characters, simply return an empty element which will be omitted later
+        return ""
+
+'''
+    LEGACY: Part of str_cleaner function. As we will transform string into numbers, we don't really care about human readable part. Also in some
+    cases strings could contain more spaces by mistake.
+'''
+def space_remover(cur_str):
+    return cur_str.replace(" ", "")
+
+
+'''
+    LEGACY: Part of str_cleaner function. Convert everything in lower_case so that we wont lose information from capitalized words
+'''
+def to_lower_case(cur_str):
+    return cur_str.lower()
+
+'''
+    LEGACY: Part of str_cleaner function. Remove here all the special characters contained in a string
+'''
+def remove_special(cur_str):
+    str_fin = ''.join(e for e in cur_str if e.isalnum())
+    return str_fin
+
+'''
+    LEGACY: Used in the initial approach while using string fields. These fields where in many cases 'dirty' and could not possibly be used.
+    This method performed simple cleaning on strings including checking for non-ascii characters, removing special characters, convert everything to lower case
+    and remove spaces
+'''
+def str_cleaner(cur_str):
+    cur_str = contains_non_ascii(cur_str)
+    # print(cur_str)
+    cur_str = remove_special(cur_str)
+    # print(cur_str)
+    cur_str = to_lower_case(cur_str)
+    # print(cur_str)
+    cur_str = space_remover(cur_str)
+    # print(cur_str)
+    return cur_str
+
 def array_splitter(arr):
     # print(arr[-3:])
     # Initial approach with 3 elements from max and 3 from min produced highly correlated results
@@ -163,6 +212,35 @@ if __name__ == "__main__":
 
     # correlation_checker(parquetFile)
 
+    '''
+       LEGACY: The following part is not used in the final implementation. Basically, use the existing string fields
+       and convert them into numeric ones for ML analysis. Afterwards, found out that there is not very much valuable info 
+       for our model, so omit that  
+    '''
+    # string_cleaner_udf = F.udf(lambda cur_str: str_cleaner(name), StringType())
+    #
+    # dfParquet = parquetFile.withColumn('artist_id_clean', string_cleaner_udf(col('artist_id')))
+    # dfParquet = parquetFile.withColumn('artist_location_clean', string_cleaner_udf(col('artist_location')))
+    # dfParquet = parquetFile.withColumn('artist_mbid_clean', string_cleaner_udf(col('artist_mbid')))
+    # dfParquet = parquetFile.withColumn('artist_name_clean', string_cleaner_udf(col('artist_name')))
+    # dfParquet = parquetFile.withColumn('audio_md5_clean', string_cleaner_udf(col('audio_md5')))
+    # dfParquet = parquetFile.withColumn('release', string_cleaner_udf(col('release')))
+    # dfParquet = parquetFile.withColumn('song_id', string_cleaner_udf(col('song_id')))
+    # dfParquet = parquetFile.withColumn('title', string_cleaner_udf(col('title')))
+    # dfParquet = parquetFile.withColumn('track_id', string_cleaner_udf(col('artist_mbid')))
+    #
+    #
+    # # dataset = dfParquet.select(['artist_name', 'title', 'release', 'artist_id', 'song_id', 'track_id', 'artist_location'])
+    #
+    # str_column = ['artist_id_clean', 'artist_location_clean', 'artist_mbid_clean', 'artist_name_clean', 'audio_md5_clean',
+    #               'release', 'song_id', 'title', 'track_id']
+    #
+    # # Turn strings into numbers, so that we can use that in ML analysis
+    # hasher = FeatureHasher(inputCols=str_column,outputCol="string_features")
+    # df_str = hasher.transform(dfParquet)
+
+
+
     # LEGACY -> UDF method fetching multiple elements from array features
     pad_fix_length = F.udf(
         lambda arr: array_splitter(arr),
@@ -172,7 +250,7 @@ if __name__ == "__main__":
     # Initial approach. Trying to fetch multiple min, max values per array attribute. Too many correlated elements, try different approach
     # parquetFile = parquetFile.withColumn('segments_loudness_max_norm', pad_fix_length(F.sort_array(col('beats_confidence'), asc=False)))
 
-
+    # Method to obtain the max and min values of array elements
     parquetFile = array_element_column(parquetFiler=parquetFile)
 
 

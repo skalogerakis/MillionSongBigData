@@ -54,6 +54,10 @@ spark-submit --py-files /home/hadoop/Project/hdf5_getters.py /home/hadoop/Projec
 spark-submit --py-files /home/hadoop/skalogerakis/MyFiles/Project/hdf5_getters.py /home/hadoop/skalogerakis/MyFiles/Project/h5_scrapper.py --input /home/hadoop/skalogerakis/MSD/MillionSong2/A/A/ --output s3n://millionsongsk/MyFiles/Result/parquetInit
 
 
+
+spark-submit --py-files /home/hadoop/Project/hdf5_getters.py /home/hadoop/Project/h5_scrapper.py --input /home/hadoop/skalog/MSD/ --output s3a://millionsongsk/MyFiles/Result/parquetInit
+
+
 aws s3 cp s3://millionsongsk/MyFiles/Project/ ./Project/ --recursive
 aws s3 cp s3://millionsongsk/MSD/MillionSong2/A/A/ ./MSD/ --recursive
 millionsongsk/MSD/MillionSong2/A/A/
