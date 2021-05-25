@@ -261,33 +261,33 @@ def random_forest_classifier(training_data, test_data, validation_data):
     model_evaluator(evaluator=evaluator, evaluator_name="areaUnderROC", data=predict_valid,
                     data_type="valid_data")
 
-    # predict_final = rfModel.transform(test_data)
-    #
-    # model_evaluator(evaluator=evaluator, evaluator_name="areaUnderROC", data=predict_final,
-    #                 data_type="test_data")
-
-    # print("\n\nParameter Grid and cross validation")
-    paramGrid = ParamGridBuilder() \
-        .addGrid(rf.maxDepth, [2, 4, 6]) \
-        .addGrid(rf.maxBins, [20, 60]) \
-        .addGrid(rf.numTrees, [5, 20]) \
-        .build()
-
-    # Create 5-fold CrossValidator
-    cv = CrossValidator(estimator=rf, estimatorParamMaps=paramGrid, evaluator=evaluator, numFolds=5)
-
-    # Run cross validations.  This can take about 6 minutes since it is training over 20 trees!
-    cvModel = cv.fit(training_data)
-
-    predict_cross_valid = cvModel.transform(validation_data)
-
-    model_evaluator(evaluator=evaluator, evaluator_name="areaUnderROC", data=predict_cross_valid,
-                    data_type="valid_data")
-
-    predict_final = cvModel.bestModel.transform(test_data)
+    predict_final = rfModel.transform(test_data)
 
     model_evaluator(evaluator=evaluator, evaluator_name="areaUnderROC", data=predict_final,
                     data_type="test_data")
+
+    # print("\n\nParameter Grid and cross validation")
+    # paramGrid = ParamGridBuilder() \
+    #     .addGrid(rf.maxDepth, [2, 4, 6]) \
+    #     .addGrid(rf.maxBins, [20, 60]) \
+    #     .addGrid(rf.numTrees, [5, 20]) \
+    #     .build()
+    #
+    # # Create 5-fold CrossValidator
+    # cv = CrossValidator(estimator=rf, estimatorParamMaps=paramGrid, evaluator=evaluator, numFolds=5)
+    #
+    # # Run cross validations.  This can take about 6 minutes since it is training over 20 trees!
+    # cvModel = cv.fit(training_data)
+    #
+    # predict_cross_valid = cvModel.transform(validation_data)
+    #
+    # model_evaluator(evaluator=evaluator, evaluator_name="areaUnderROC", data=predict_cross_valid,
+    #                 data_type="valid_data")
+    #
+    # predict_final = cvModel.bestModel.transform(test_data)
+    #
+    # model_evaluator(evaluator=evaluator, evaluator_name="areaUnderROC", data=predict_final,
+    #                 data_type="test_data")
 
 
 def gradient_boosted_tree_classifier(training_data, test_data, validation_data):
@@ -388,20 +388,20 @@ if __name__ == "__main__":
     parser.add_argument('--input', help='Requires file input full path')
     args = parser.parse_args()
 
-    # spark = SparkSession \
-    #     .builder \
-    #     .appName("PySpark ML") \
-    #     .getOrCreate()
+    spark = SparkSession \
+        .builder \
+        .appName("PySpark ML") \
+        .getOrCreate()
     # create Spark context with necessary configuration
-    sc = SparkSession.builder.appName('PySpark ML').master('local[*]').config("spark.driver.memory", "9g").getOrCreate()
+    # sc = SparkSession.builder.appName('PySpark ML').master('local[*]').getOrCreate()
     #
-    sparkContext = sc.sparkContext
+    sparkContext = spark.sparkContext
     sparkContext.setLogLevel("OFF")
     # sc.setLogLevel("OFF")
 
     # Persist as we will use this multiple times
     # df_parquet = spark.read.parquet("/home/skalogerakis/Projects/MillionSongBigData/parquetAfterProcessT").persist()
-    df_parquet = sc.read.parquet(str(args.input)).persist()
+    df_parquet = spark.read.parquet(str(args.input)).persist()
 
     # Sanity check print schema and some of the values
     df_parquet.printSchema()

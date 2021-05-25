@@ -138,22 +138,21 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     # create Spark context with necessary configuration
-    sc = SparkSession.builder.appName('PySpark Preprocessing').config("spark.driver.memory", "9g").master('local[*]').getOrCreate()
+    # sc = SparkSession.builder.appName('PySpark Preprocessing').master('local[*]').getOrCreate()
     #
-    sparkContext = sc.sparkContext
+    # sparkContext = sc.sparkContext
+    # sparkContext.setLogLevel("OFF")
+
+    spark = SparkSession \
+        .builder \
+        .appName("PySpark Preprocessing") \
+        .getOrCreate()
+
+    sparkContext = spark.sparkContext
     sparkContext.setLogLevel("ERROR")
 
-    # spark = SparkSession \
-    #     .builder \
-    #     .appName("PySpark Preprocessing") \
-    #     .getOrCreate()
-
-    # sparkContext = spark.sparkContext
-    # sparkContext.setLogLevel("ERROR")
-
     # parquetFile = sc.read.parquet("/home/skalogerakis/Projects/MillionSongBigData/parquetBigT")
-    # --input /home/skalogerakis/Projects/MillionSongBigData/TEST/* --output hg
-    parquetFile = sc.read.parquet(str(args.input))
+    parquetFile = spark.read.parquet(str(args.input))
 
     # Parquet files can also be used to create a temporary view and then used in SQL statements.
     parquetFile.printSchema()

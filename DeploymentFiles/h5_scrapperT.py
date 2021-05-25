@@ -17,19 +17,59 @@ from pyspark.sql import SparkSession
 from pyspark.sql.types import *
 from pyspark.sql.functions import *
 
+
+def getListOfFiles(dirName):
+
+    listOfFile = os.listdir(dirName)
+    allFiles = list()
+    for entry in listOfFile:
+        fullPath = os.path.join(dirName, entry)
+
+        if os.path.isdir(fullPath):
+            allFiles = allFiles + getListOfFiles(fullPath)
+        else:
+            allFiles.append(fullPath)
+
+
+    print("Path list length ", len(allFiles))
+    return allFiles
+
+
 # Create first a function that finds all the available paths for parsing
-def complete_file_list(basedir):
+# def complete_file_list(basedir):
+#     ext = '.h5'  # Get all files with extension .h5
+#     total_file_list = []  # Create first an empty list
+#     for root, dirs, files in os.walk(basedir):
+#         files = glob.glob(os.path.join(root, '*' + ext))  # Glob returns a list of paths matching a pathname pattern
+#
+#         # Since we have multiple arrays simply concat the and after all iteration the final list will contain all the
+#         # available paths
+#         total_file_list += files
+#
+#     print("Path list length ", len(total_file_list))
+#     return total_file_list
+
+def complete_file_list(basedir, rmv):
     ext = '.h5'  # Get all files with extension .h5
     total_file_list = []  # Create first an empty list
+    # s3_list = []
     for root, dirs, files in os.walk(basedir):
         files = glob.glob(os.path.join(root, '*' + ext))  # Glob returns a list of paths matching a pathname pattern
-        print(files)
+        # print(files)
+        for f in range(len(files)):
+            # print(f.replace("/home/skalogerakis/","s3://millionsongsk/"))
+            files[f] = files[f].replace(rmv, "s3a://millionsongsk/MSD/MillionSong2/A/A/")
 
+            # print(files[f])
+            # tst = f.replace("/home/skalogerakis/","s3://millionsongsk/")
+            # s3_list += tst
+        # s3_list += tst
         # Since we have multiple arrays simply concat the and after all iteration the final list will contain all the
         # available paths
         total_file_list += files
 
-    print("Path list length ", len(total_file_list))
+    # print("Path list length ", len(total_file_list))
+    # print(total_file_list)
     return total_file_list
 
 # Time decorator to evaluate performance
@@ -216,14 +256,32 @@ def runtime_array(sparkContext):
                                                            when(col('year') == 0, -1).when(col('year') < 2000,
                                                                                            0).otherwise(1))
 
-    # filter_label.write.mode("overwrite").parquet("/home/skalogerakis/Projects/MillionSongBigData/parquetFile")
+    filter_label.write.mode("overwrite").parquet("/home/skalogerakis/Projects/MillionSongBigData/parquetFile")
 
+
+# def download_s3_folder(bucket_name, s3_folder, local_dir=None):
+#     """
+#     Download the contents of a folder directory
+#     Args:
+#         bucket_name: the name of the s3 bucket
+#         s3_folder: the folder path in the s3 bucket
+#         local_dir: a relative or absolute directory path in the local file system
+#     """
+#     bucket = s3.Bucket(bucket_name)
+#     for obj in bucket.objects.filter(Prefix=s3_folder):
+#         target = obj.key if local_dir is None \
+#             else os.path.join(local_dir, os.path.relpath(obj.key, s3_folder))
+#         if not os.path.exists(os.path.dirname(target)):
+#             os.makedirs(os.path.dirname(target))
+#         if obj.key[-1] == '/':
+#             continue
+#         bucket.download_file(obj.key, target)
 
 # Implementation using StructTypes instead of arrays to define schema. Seems to be a more strictly formalized
 # approach so, will use that
 @time_wrapper
-def runtime_formalized(sparkContext, sc, input_path, output_path):
-    filenames = complete_file_list(str(input_path))
+def runtime_formalized(sparkContext, sc, input_path, output_path, remover):
+    filenames = complete_file_list(str(input_path), str(remover))
     # filenames = getListOfFiles(str(input_path))
 
     # filenames = complete_file_list('/home/skalogerakis/Documents/MillionSong/MillionSongSubset/A/M')
@@ -305,10 +363,9 @@ def runtime_formalized(sparkContext, sc, input_path, output_path):
                                                           when(col('year') == 0, -1).when(col('year') < 2000,
                                                                                           0).otherwise(1))
 
-    print(filter_label.count())
-
     # filter_label.write.mode("overwrite").parquet("/home/skalogerakis/Projects/MillionSongBigData/parquetBigT")
     filter_label.write.mode("overwrite").parquet(str(output_path))
+
 
     '''
         # fdf.write.mode("overwrite").parquet("/home/skalogerakis/Projects/MillionSongBigData/parquetTimeBig")
@@ -321,12 +378,16 @@ def runtime_formalized(sparkContext, sc, input_path, output_path):
     '''
 
 
+
 # Main function
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='This is the h5 scrapper App')
 
     parser.add_argument('--input', help='Requires file input full path')
     parser.add_argument('--output', help='Requires file output full path')
+    parser.add_argument('--rmv', help='Requires file output full path')
+    # parser.add_argument('--s3folder', help='Requires file output full path')
+    # parser.add_argument('--localdir', help='Requires file output full path')
     args = parser.parse_args()
 
 
@@ -334,17 +395,30 @@ if __name__ == "__main__":
 
     # To execute avro execution in Pycharm use the SparkSession below
     # sc = SparkSession.builder.appName('PySpark Word Count').master('local[*]').config("spark.jars.packages", "org.apache.spark:spark-avro_2.12:3.1.1").getOrCreate()
-    sc = SparkSession.builder.appName('PySpark HDF5 File parser').master('local[*]').config("spark.driver.memory", "9g").getOrCreate()
+    # sc = SparkSession.builder.appName('PySpark HDF5 File parser').master('local[*]').getOrCreate()
+
+    # import boto3
+    #
+    # s3 = boto3.resource(
+    #     's3')  # assumes credentials & configuration are handled outside python in .aws directory or environment variables
 
 
 
-    # spark = SparkSession \
-    #     .builder \
-    #     .appName("PySpark HDF5 File parser") \
-    #     .getOrCreate()
 
-    sparkContext = sc.sparkContext
+
+
+
+
+
+    spark = SparkSession \
+        .builder \
+        .appName("PySpark HDF5 File parser") \
+        .getOrCreate()
+
+    sparkContext = spark.sparkContext
     sparkContext.setLogLevel("ERROR")
 
+    # download_s3_folder(args.bucket, args.s3folder, args.localdir)
+
     # runtime_array(sparkContext)
-    runtime_formalized(sparkContext, sc, args.input, args.output)
+    runtime_formalized(sparkContext, spark, args.input, args.output, args.rmv)
