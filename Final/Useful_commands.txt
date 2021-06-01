@@ -1,0 +1,73 @@
+# Spark-shell and final execution commands
+
+# Execute scrapper
+./spark-submit --py-files /home/skalogerakis/Projects/MillionSongBigData/hdf5_getters.py /home/skalogerakis/Projects/MillionSongBigData/h5_scrapper.py --input /home/skalogerakis/Documents/MillionSong/MillionSongSubset/A/M --output /home/skalogerakis/Projects/MillionSongBigData/parquetTester
+
+# Execute preprocess
+./spark-submit /home/skalogerakis/Projects/MillionSongBigData/preprocess.py --input /home/skalogerakis/Projects/MillionSongBigData/parquetTester --output /home/skalogerakis/Projects/MillionSongBigData/parquetTesterNew
+
+# Execute ML
+./spark-submit /home/skalogerakis/Projects/MillionSongBigData/ML_prediction.py --input /home/skalogerakis/Projects/MillionSongBigData/parquetTesterNew
+
+
+#AWS
+
+
+MyFiles/ -> Project/ Result/
+s3a://millionsongsk/MyFiles/Project/
+s3a://millionsongsk/MyFiles/Result/
+s3a://millionsongsk/MSD
+
+# Connect with cluster
+ssh -i /home/skalogerakis/Documents/finalKey.pem <>
+
+nano ~/.aws/credentials
+
+aws s3 ls s3://millionsongsk/MSD/
+
+--bucket s3://millionsongsk/
+--s3folder MSD/
+--localdir /home/hadoop/MSD/
+
+# Folder
+aws s3 cp s3://millionsongsk/MyFiles/Project/ ./Project/ --recursive
+
+aws s3 cp s3://millionsongsk/MyFiles/MSD/ ./MSD/ --recursive
+
+aws s3 ls s3://millionsongsk/MyFiles/MSD/
+# One Files
+aws s3 cp s3://millionsongsk/MyFiles/Project/h5_scrapperT.py .
+
+
+# Execute scrapper
+spark-submit --py-files /home/hadoop/Project/hdf5_getters.py /home/hadoop/Project/h5_scrapper.py --input s3a://millionsongsk/MSD --output s3a://millionsongsk/MyFiles/Result/parquetInit
+spark-submit --py-files /home/hadoop/Project/hdf5_getters.py /home/hadoop/Project/h5_scrapper2.py --input d --output s3a://millionsongsk/MyFiles/Result/parquetInit
+
+spark-submit --py-files /home/hadoop/Project/hdf5_getters.py /home/hadoop/Project/h5_scrapper.py --input /home/hadoop/MSD/ --output s3a://millionsongsk/MyFiles/Result/parquetInit --bucket s3://millionsongsk/ --s3folder MSD/ --localdir /home/hadoop/MSD/
+
+spark-submit --py-files /home/hadoop/Project/hdf5_getters.py /home/hadoop/Project/h5_scrapper.py --input /home/hadoop/MSD/ --output s3a://millionsongsk/MyFiles/Result/parquetInit
+
+spark-submit --py-files /home/hadoop/Project/hdf5_getters.py /home/hadoop/Project/h5_scrapper.py --input /home/hadoop/MSD/ --output s3n://millionsongsk/MyFiles/Result/parquetInit --rmv /home/hadoop/
+
+/skalogerakis/MyFiles/
+
+spark-submit --py-files /home/hadoop/skalogerakis/MyFiles/Project/hdf5_getters.py /home/hadoop/skalogerakis/MyFiles/Project/h5_scrapper.py --input /home/hadoop/skalogerakis/MSD/MillionSong2/A/A/ --output s3n://millionsongsk/MyFiles/Result/parquetInit
+
+
+
+spark-submit --py-files /home/hadoop/Project/hdf5_getters.py /home/hadoop/Project/h5_scrapper.py --input /home/hadoop/skalog/MSD/ --output s3a://millionsongsk/MyFiles/Result/parquetInit
+
+spark-submit --py-files /home/hadoop/Project/hdf5_getters.py /home/hadoop/Project/h5_scrapper.py --input /home/hadoop/MSD/ --output s3a://millionsongsk/MyFiles/Result/parquetInit
+
+
+aws s3 cp s3://millionsongsk/MyFiles/Project/ ./Project/ --recursive
+aws s3 cp s3://millionsongsk/MSD/MillionSong2/A/A/ ./MSD/ --recursive
+millionsongsk/MSD/MillionSong2/A/A/
+
+s3://millionsongsk/MyFiles/Project/h5_scrapper.py
+
+# Execute preprocess
+spark-submit /Project/preprocess.py --input s3a://millionsongsk/MyFiles/Result/parquetInit --output s3a://millionsongsk/MyFiles/Result/parquetAfter
+
+# Execute ML
+spark-submit /Project/ML_prediction.py --input s3a://millionsongsk/MyFiles/Result/parquetAfter
