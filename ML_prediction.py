@@ -292,7 +292,7 @@ def random_forest_classifier(training_data, test_data, validation_data):
     # print(rfModel.featureImportances)
 
     # Plot roc curve
-    # roc_plot(rfModel)
+    roc_plot(rfModel)
 
     predict_valid = rfModel.transform(validation_data)
     # predict_train = rfModel.transform(training_data)
@@ -333,6 +333,7 @@ def random_forest_classifier(training_data, test_data, validation_data):
 
     model_evaluator(evaluator=evaluator, evaluator_name="areaUnderROC", data=predict_final,
                     data_type="test_data")
+
 
 
 '''
@@ -468,11 +469,15 @@ if __name__ == "__main__":
     print("Sanity check sum 1s and 0s",
           df_parquet.filter(col('label') == 1).count() + df_parquet.filter(col('label') == 0).count())
 
-    # Baseline model implementation
-    baseline_model(df_data=df_parquet)
+
 
     # https://www.quora.com/What-are-the-best-ways-to-predict-data-once-you-have-your-input-splitted-into-train-cross_validation-and-test-sets
     training_data, validation_data, test_data = df_parquet.randomSplit(weights=[0.60, 0.20, 0.20], seed=1234)
+
+    # Baseline model implementation
+    baseline_model(df_data=training_data)
+    baseline_model(df_data=validation_data)
+    baseline_model(df_data=test_data)
 
     print("\n\nDataset Counting")
     print("Training Dataset Count: ", str(training_data.count()))
@@ -482,7 +487,7 @@ if __name__ == "__main__":
 
     # weighted_logistic_regression(training_data=training_data, test_data=test_data, validation_data=validation_data)
     # decision_tree_classifier(training_data=training_data,test_data=test_data, validation_data=validation_data)
-    random_forest_classifier(training_data=training_data, test_data=test_data, validation_data=validation_data)
-    # gradient_boosted_tree_classifier(training_data=training_data, test_data=test_data, validation_data=validation_data)
+    # random_forest_classifier(training_data=training_data, test_data=test_data, validation_data=validation_data)
+    gradient_boosted_tree_classifier(training_data=training_data, test_data=test_data, validation_data=validation_data)
     # bayes_classifier(training_data=training_data,test_data=test_data, validation_data=validation_data)
     # linear_support_vector_machines(training_data=training_data, test_data=test_data, validation_data=validation_data)

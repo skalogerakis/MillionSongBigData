@@ -415,12 +415,17 @@ if __name__ == "__main__":
     print("Sanity check sum 1s and 0s",
           df_parquet.filter(col('label') == 1).count() + df_parquet.filter(col('label') == 0).count())
 
-    # Baseline model implementation
-    baseline_model(df_data=df_parquet)
+    
 
     # https://www.quora.com/What-are-the-best-ways-to-predict-data-once-you-have-your-input-splitted-into-train-cross_validation-and-test-sets
     training_data, validation_data, test_data = df_parquet.randomSplit(weights=[0.60, 0.20, 0.20], seed=1234)
+    
+    # Baseline model implementation
+    baseline_model(df_data=training_data)
+    baseline_model(df_data=validation_data)
+    baseline_model(df_data=test_data)
 
+    
     print("\n\nDataset Counting")
     print("Training Dataset Count: ", str(training_data.count()))
     print("Test Dataset Count: ", str(test_data.count()))

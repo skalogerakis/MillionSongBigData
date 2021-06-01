@@ -26,7 +26,7 @@ import pyspark.sql.functions as F
 def correlation_heatmap(corrmatrix, columns):
     # Heatmap produces NaN when values don't vary between them
     # annot = True to showcase values in each cell
-    sns.heatmap(corrmatrix, xticklabels=columns, yticklabels=columns, annot=True)
+    sns.heatmap(corrmatrix, xticklabels=columns, yticklabels=columns, annot=True, cmap='Blues')
     # ax.set_yticklabels(ax.get_yticklabels(), rotation = 45, fontsize = 8)
     plt.xticks(rotation=70, fontsize=8)
     plt.title('Attribute Correlation MSD', fontsize=20)
@@ -238,7 +238,7 @@ if __name__ == "__main__":
     print(len(parquetFile.columns))
 
     # Uncomment the following line to check the correlation between numerical fields
-    # correlation_checker(parquetFile)
+    correlation_checker(parquetFile)
 
     '''
        LEGACY: The following part is not used in the final implementation. Basically, use the existing string fields
@@ -264,8 +264,8 @@ if __name__ == "__main__":
     #               'release', 'song_id', 'title', 'track_id']
     #
     # # Turn strings into numbers, so that we can use that in ML analysis
-    # hasher = FeatureHasher(inputCols=str_column,outputCol="string_features")
-    # df_str = hasher.transform(df_parquetFile)
+    # indexer = StringIndexer(inputCols=str_column,outputCol="string_features")
+    # df_str = indexer.transform(df_parquetFile)
 
     # LEGACY -> UDF method fetching multiple elements from array features
     pad_fix_length = F.udf(
