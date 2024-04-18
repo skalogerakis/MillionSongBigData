@@ -1,0 +1,5 @@
+# Million-Song-Dataset-Analysis-using-ML-models-on-Big-Data
+
+**Description:** Music is often considered a reflection of the society and is a particularly interesting topic for researchers in order to examine the societal culture and value of each generation. For a human being it is relatively easy to determine whether a song belongs in a certain era or not, but for machines such problems are not trivial. Using the Million Song Dataset, a collection of audio features and metadata, I evaluated different classification algorithms and their ability to predict whether a song dates before or after the year 2000 and achieved a best score of 0.775 using the ROC-AUC metric
+
+While the challenge in this project is to accurately determine whether a song date before/after 2000, the format of the data poses a significant challenge since the raw Dataset consists files in binary .h5 format. Processing those files, especially in a distributed environment, is non-trivial. So the implementation focuses on parsing those binary files in a distributed manner with Spark, and the Machine Learning implementation is used more like a proof-of-concept.
